@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/providers/providers.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../core/widgets/category_chip.dart';
 import '../../core/widgets/glass_app_bar.dart';
@@ -25,15 +27,14 @@ String _categoryLabel(AppL10n l10n, String id) {
   }
 }
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  String _selectedCategory = 'all';
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   AppNavDestination _nav = AppNavDestination.home;
 
   void _onNav(AppNavDestination d) {
@@ -54,6 +55,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
+    final selectedCategory = ref.watch(selectedCategoryProvider);
+    final filteredCars = ref.watch(filteredCarsProvider);
+    final nearbyCars = ref.watch(nearbyCarsProvider);
+    final topRated = ref.watch(topRatedCarsProvider);
+
+    final showFiltered = selectedCategory != 'all';
+
     return Scaffold(
       appBar: const GlassAppBar(
         avatarUrl:
@@ -98,56 +106,98 @@ class _HomeScreenState extends State<HomeScreen> {
                 final c = kCarCategories[i];
                 return CategoryChip(
                   label: _categoryLabel(l10n, c.id),
-                  selected: c.id == _selectedCategory,
-                  onTap: () => setState(() => _selectedCategory = c.id),
+                  selected: c.id == selectedCategory,
+                  onTap: () =>
+                      ref.read(selectedCategoryProvider.notifier).state = c.id,
                 );
               },
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
-          _SectionHeader(
-            title: l10n.homeNearby,
-            actionLabel: l10n.homeViewAll,
-            onAction: () {},
-          ),
-          const SizedBox(height: AppSpacing.md),
-          SizedBox(
-            height: 280,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
+          if (showFiltered) ...[
+            Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              itemCount: kNearbyCars.length,
-              separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.md),
-              itemBuilder: (_, i) => CarFeatureCard(
-                car: kNearbyCars[i],
-                onTap: () => context.push('/car/${kNearbyCars[i].id}'),
+              child: Text(
+                '${_categoryLabel(l10n, selectedCategory)} (${filteredCars.length})',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.neutral900,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: Text(
-              l10n.homeTopRated,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: AppColors.neutral900,
+            const SizedBox(height: AppSpacing.md),
+            if (filteredCars.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.xxl),
+                child: Column(
+                  children: [
+                    Icon(Icons.directions_car_outlined,
+                        size: 48, color: AppColors.neutral300),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'No cars in this category',
+                      style: TextStyle(
+                        color: AppColors.neutral500,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ...filteredCars.map(
+                (c) => Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md,
+                  ),
+                  child: CarListTile(
+                    car: c,
+                    onTap: () => context.push('/car/${c.id}'),
+                  ),
+                ),
+              ),
+          ] else ...[
+            _SectionHeader(title: l10n.homeNearby),
+            const SizedBox(height: AppSpacing.md),
+            SizedBox(
+              height: 280,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                itemCount: nearbyCars.length,
+                separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.md),
+                itemBuilder: (_, i) => CarFeatureCard(
+                  car: nearbyCars[i],
+                  onTap: () => context.push('/car/${nearbyCars[i].id}'),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          ...kTopRated.map(
-            (c) => Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md,
-              ),
-              child: CarListTile(
-                car: c,
-                onTap: () => context.push('/car/${c.id}'),
+            const SizedBox(height: AppSpacing.xl),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Text(
+                l10n.homeTopRated,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.neutral900,
+                ),
               ),
             ),
-          ),
+            const SizedBox(height: AppSpacing.md),
+            ...topRated.map(
+              (c) => Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md,
+                ),
+                child: CarListTile(
+                  car: c,
+                  onTap: () => context.push('/car/${c.id}'),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -172,17 +222,11 @@ class _SearchBar extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: _SearchField(
-              icon: Icons.location_on_outlined,
-              hint: whereHint,
-            ),
+            child: _SearchField(icon: Icons.location_on_outlined, hint: whereHint),
           ),
           Container(width: 1, height: 28, color: AppColors.neutral200),
           Expanded(
-            child: _SearchField(
-              icon: Icons.calendar_today_outlined,
-              hint: whenHint,
-            ),
+            child: _SearchField(icon: Icons.calendar_today_outlined, hint: whenHint),
           ),
           Container(
             width: 40,
@@ -216,10 +260,7 @@ class _SearchField extends StatelessWidget {
           Expanded(
             child: Text(
               hint,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.neutral500,
-              ),
+              style: const TextStyle(fontSize: 14, color: AppColors.neutral500),
             ),
           ),
         ],
@@ -229,44 +270,21 @@ class _SearchField extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.title,
-    this.actionLabel,
-    this.onAction,
-  });
+  const _SectionHeader({required this.title});
 
   final String title;
-  final String? actionLabel;
-  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: AppColors.neutral900,
-              ),
-            ),
-          ),
-          if (onAction != null && actionLabel != null)
-            TextButton(
-              onPressed: onAction,
-              child: Text(
-                actionLabel!,
-                style: const TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-        ],
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: AppColors.neutral900,
+        ),
       ),
     );
   }

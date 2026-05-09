@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/models/user.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../core/widgets/glass_app_bar.dart';
 import '../../l10n/app_localizations.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   AppNavDestination _nav = AppNavDestination.profile;
 
   void _onNav(AppNavDestination d) {
@@ -32,9 +35,130 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showTrustSheet(AppUser? user) {
+    final level = user?.trustLevel ?? TrustLevel.newUser;
+    final label = trustLevelLabel(level);
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Trust Score',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppColors.neutral900,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                const Icon(Icons.star, color: AppColors.warning, size: 20),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'Level: $label',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.neutral900,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.pill),
+              child: LinearProgressIndicator(
+                value: _trustProgress(level),
+                minHeight: 8,
+                backgroundColor: AppColors.neutral200,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              _trustDescription(level),
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.neutral500,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+          ],
+        ),
+      ),
+    );
+  }
+
+  double _trustProgress(TrustLevel level) => switch (level) {
+        TrustLevel.newUser => 0.1,
+        TrustLevel.verified => 0.4,
+        TrustLevel.trusted => 0.7,
+        TrustLevel.vip => 1.0,
+      };
+
+  String _trustDescription(TrustLevel level) => switch (level) {
+        TrustLevel.newUser =>
+          'Complete your profile and upload documents to increase your trust score.',
+        TrustLevel.verified =>
+          'Your identity is verified. Book more trips to reach Trusted status.',
+        TrustLevel.trusted =>
+          'You\'re a trusted renter. Keep up the great track record!',
+        TrustLevel.vip => 'VIP status — you enjoy the highest tier of trust.',
+      };
+
+  void _showThemeDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => SimpleDialog(
+        title: const Text('Choose Theme'),
+        children: [
+          SimpleDialogOption(
+            child: const Text('System'),
+            onPressed: () {
+              ref.read(themeModeProvider.notifier).state = ThemeMode.system;
+              Navigator.of(context).pop();
+            },
+          ),
+          SimpleDialogOption(
+            child: const Text('Light'),
+            onPressed: () {
+              ref.read(themeModeProvider.notifier).state = ThemeMode.light;
+              Navigator.of(context).pop();
+            },
+          ),
+          SimpleDialogOption(
+            child: const Text('Dark'),
+            onPressed: () {
+              ref.read(themeModeProvider.notifier).state = ThemeMode.dark;
+              Navigator.of(context).pop();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
+    final user = ref.watch(currentUserProvider);
+    final name = user?.fullName ?? 'Guest';
+    final phone = user?.phone ?? '';
+    final isVerified = user?.isVerified ?? false;
+
     return Scaffold(
       appBar: const GlassAppBar(),
       bottomNavigationBar: AppBottomNav(current: _nav, onSelect: _onNav),
@@ -56,48 +180,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: AppColors.primaryLight,
                     border: Border.all(color: AppColors.primary, width: 2),
                   ),
-                  child: const Icon(Icons.person, color: AppColors.primary, size: 40),
+                  child: const Icon(Icons.person,
+                      color: AppColors.primary, size: 40),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                const Text(
-                  'Temirlan Zhumbayev',
-                  style: TextStyle(
+                Text(
+                  name,
+                  style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
                     color: AppColors.neutral900,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                const Text(
-                  '+7 (700) 123-45-67',
-                  style: TextStyle(
+                Text(
+                  phone,
+                  style: const TextStyle(
                     fontSize: 14,
                     color: AppColors.neutral500,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.verified, color: AppColors.success, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        l10n.profileVerified,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.success,
+                if (isVerified)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.1),
+                      borderRadius:
+                          BorderRadius.circular(AppRadius.pill),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.verified,
+                            color: AppColors.success, size: 16),
+                        const SizedBox(width: 4),
+                        Text(
+                          l10n.profileVerified,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.success,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -108,25 +237,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _ProfileItem(
                 icon: Icons.person_outline,
                 label: l10n.profilePersonalInfo,
-                onTap: () {},
+                onTap: () => context.push('/profile/edit'),
               ),
               _ProfileItem(
                 icon: Icons.badge_outlined,
                 label: l10n.profileDocuments,
-                onTap: () {},
+                onTap: () => context.push('/profile/documents'),
               ),
               _ProfileItem(
                 icon: Icons.star_outline,
                 label: l10n.profileTrustScore,
-                trailing: const Text(
-                  '★ Verified',
-                  style: TextStyle(
+                trailing: Text(
+                  '★ ${trustLevelLabel(user?.trustLevel ?? TrustLevel.newUser)}',
+                  style: const TextStyle(
                     color: AppColors.primary,
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
                 ),
-                onTap: () {},
+                onTap: () => _showTrustSheet(user),
               ),
             ],
           ),
@@ -136,21 +265,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _ProfileItem(
                 icon: Icons.notifications_outlined,
                 label: l10n.profileNotifications,
-                onTap: () {},
-              ),
-              _ProfileItem(
-                icon: Icons.language_outlined,
-                label: l10n.profileLanguage,
-                trailing: const Text(
-                  'Русский',
-                  style: TextStyle(color: AppColors.neutral500, fontSize: 14),
-                ),
-                onTap: () {},
+                onTap: () => _showSnackBar('Coming soon'),
               ),
               _ProfileItem(
                 icon: Icons.dark_mode_outlined,
                 label: l10n.profileTheme,
-                onTap: () {},
+                onTap: _showThemeDialog,
               ),
             ],
           ),
@@ -160,20 +280,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _ProfileItem(
                 icon: Icons.help_outline,
                 label: l10n.profileHelp,
-                onTap: () {},
+                onTap: () => _showSnackBar('Coming soon'),
               ),
               _ProfileItem(
                 icon: Icons.description_outlined,
                 label: l10n.profileTerms,
-                onTap: () {},
+                onTap: () => _showSnackBar('Coming soon'),
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            padding:
+                const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: TextButton(
-              onPressed: () => context.go('/'),
+              onPressed: () {
+                ref.read(currentUserProvider.notifier).logout();
+                context.go('/');
+              },
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.error,
                 minimumSize: const Size(double.infinity, 48),
@@ -200,7 +324,10 @@ class _ProfileSection extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.sm,
           ),
           child: Text(
             title.toUpperCase(),
@@ -234,14 +361,17 @@ class _ProfileItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       leading: Icon(icon, color: AppColors.neutral700, size: 22),
       title: Text(
         label,
-        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+        style:
+            const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
       ),
       trailing: trailing ??
-          const Icon(Icons.chevron_right, color: AppColors.neutral500, size: 20),
+          const Icon(Icons.chevron_right,
+              color: AppColors.neutral500, size: 20),
       onTap: onTap,
       visualDensity: VisualDensity.compact,
     );

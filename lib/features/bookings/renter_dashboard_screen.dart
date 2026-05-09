@@ -1,56 +1,36 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
+import '../../core/models/booking.dart';
+import '../../core/providers/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../core/widgets/glass_app_bar.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../l10n/app_localizations.dart';
-import '../home/data/sample_cars.dart';
 
-String _bookingStatusLabel(AppL10n l10n, String id) {
-  switch (id) {
-    case 'confirmed':
-      return l10n.bookingsStatusConfirmed;
-    default:
-      return id;
-  }
-}
-
-String _bookingCategoryLabel(AppL10n l10n, String id) {
-  switch (id) {
-    case 'comfort':
-      return l10n.categoryComfort;
-    case 'business':
-      return l10n.categoryBusiness;
-    default:
-      return id;
-  }
-}
-
-String _bookingDateRangeLabel(AppL10n l10n, String id) {
-  switch (id) {
-    case 'range1':
-      return l10n.bookingsDateRange1;
-    case 'range2':
-      return l10n.bookingsDateRange2;
-    default:
-      return id;
-  }
-}
-
-class RenterDashboardScreen extends StatefulWidget {
+class RenterDashboardScreen extends ConsumerStatefulWidget {
   const RenterDashboardScreen({super.key});
 
   @override
-  State<RenterDashboardScreen> createState() => _RenterDashboardScreenState();
+  ConsumerState<RenterDashboardScreen> createState() =>
+      _RenterDashboardScreenState();
 }
 
-class _RenterDashboardScreenState extends State<RenterDashboardScreen> {
+class _RenterDashboardScreenState extends ConsumerState<RenterDashboardScreen> {
   int _tab = 0;
   AppNavDestination _nav = AppNavDestination.bookings;
+
+  static const _tabStatuses = [
+    BookingStatus.confirmed,
+    BookingStatus.active,
+    BookingStatus.completed,
+    BookingStatus.cancelled,
+  ];
 
   void _onNav(AppNavDestination d) {
     if (d == _nav) return;
@@ -70,12 +50,17 @@ class _RenterDashboardScreenState extends State<RenterDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
+    final allBookings = ref.watch(bookingsProvider);
+    final filteredBookings =
+        allBookings.where((b) => b.status == _tabStatuses[_tab]).toList();
+
     final List<String> tabs = [
       l10n.bookingsTabUpcoming,
       l10n.bookingsTabActive,
       l10n.bookingsTabCompleted,
       l10n.bookingsTabCancelled,
     ];
+
     return Scaffold(
       appBar: const GlassAppBar(),
       bottomNavigationBar: AppBottomNav(current: _nav, onSelect: _onNav),
@@ -120,18 +105,56 @@ class _RenterDashboardScreenState extends State<RenterDashboardScreen> {
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
-          ...kUpcomingBookings.map(
-            (b) => Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md,
+          if (filteredBookings.isEmpty)
+            _EmptyState(tab: tabs[_tab])
+          else
+            ...filteredBookings.map(
+              (b) => Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md,
+                ),
+                child: _BookingCard(booking: b),
               ),
-              child: _BookingCard(booking: b),
             ),
-          ),
           const SizedBox(height: AppSpacing.lg),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: _NextRideCta(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.tab});
+  final String tab;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.xxl,
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.calendar_today_outlined,
+              size: 48, color: AppColors.neutral300),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'No $tab bookings',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.neutral500,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          const Text(
+            'Your bookings will appear here.',
+            style: TextStyle(fontSize: 14, color: AppColors.neutral500),
           ),
         ],
       ),
@@ -183,11 +206,15 @@ class _TabChip extends StatelessWidget {
 class _BookingCard extends StatelessWidget {
   const _BookingCard({required this.booking});
 
-  final BookingSummary booking;
+  final Booking booking;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppL10n.of(context);
+    final fmt = DateFormat('dd MMM');
+    final dateRange = '${fmt.format(booking.startDate)} – ${fmt.format(booking.endDate)}';
+    final statusColor = bookingStatusColor(booking.status);
+    final statusLabel = bookingStatusLabel(booking.status);
+
     return Material(
       color: AppColors.white,
       borderRadius: BorderRadius.circular(AppRadius.md),
@@ -201,7 +228,7 @@ class _BookingCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 CachedNetworkImage(
-                  imageUrl: booking.imageUrl,
+                  imageUrl: booking.carImageUrl,
                   fit: BoxFit.cover,
                   placeholder: (_, _) => Container(color: AppColors.neutral200),
                 ),
@@ -209,13 +236,14 @@ class _BookingCard extends StatelessWidget {
                   top: AppSpacing.sm,
                   left: AppSpacing.sm,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: booking.statusColor,
+                      color: statusColor,
                       borderRadius: BorderRadius.circular(AppRadius.sm),
                     ),
                     child: Text(
-                      _bookingStatusLabel(l10n, booking.status),
+                      statusLabel,
                       style: const TextStyle(
                         color: AppColors.white,
                         fontSize: 11,
@@ -261,18 +289,21 @@ class _BookingCard extends StatelessWidget {
                         size: 14, color: AppColors.neutral500),
                     const SizedBox(width: 6),
                     Text(
-                      _bookingDateRangeLabel(l10n, booking.dateRange),
-                      style: const TextStyle(fontSize: 13, color: AppColors.neutral500),
+                      dateRange,
+                      style:
+                          const TextStyle(fontSize: 13, color: AppColors.neutral500),
                     ),
                     const SizedBox(width: AppSpacing.md),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: AppColors.neutral100,
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                       ),
                       child: Text(
-                        _bookingCategoryLabel(l10n, booking.category),
+                        booking.category[0].toUpperCase() +
+                            booking.category.substring(1),
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
@@ -283,44 +314,101 @@ class _BookingCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {},
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.neutral700,
-                          side: const BorderSide(color: AppColors.neutral300),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppRadius.md),
-                          ),
-                        ),
-                        child: Text(l10n.bookingsManage),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: AppColors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppRadius.md),
-                          ),
-                        ),
-                        child: Text(l10n.bookingsOpenTrip),
-                      ),
-                    ),
-                  ],
-                ),
+                _BookingActions(booking: booking),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+class _BookingActions extends ConsumerWidget {
+  const _BookingActions({required this.booking});
+  final Booking booking;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    switch (booking.status) {
+      case BookingStatus.confirmed:
+        return Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () {
+                  ref
+                      .read(bookingsProvider.notifier)
+                      .updateStatus(booking.id, BookingStatus.cancelled);
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.error,
+                  side: const BorderSide(color: AppColors.error),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                ),
+                child: const Text('Cancel'),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {
+                  context.push(
+                    '/rental/inspect/${booking.id}',
+                    extra: {'isCheckIn': true},
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                ),
+                child: const Text('Start Rental'),
+              ),
+            ),
+          ],
+        );
+      case BookingStatus.active:
+        return SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () =>
+                context.push('/rental/active/${booking.id}'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+            ),
+            child: const Text('View Active Rental'),
+          ),
+        );
+      case BookingStatus.completed:
+        return SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: () => context.push('/car/${booking.carId}'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.neutral700,
+              side: const BorderSide(color: AppColors.neutral300),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+            ),
+            child: const Text('Book Again'),
+          ),
+        );
+      case BookingStatus.cancelled:
+      case BookingStatus.pending:
+        return const SizedBox.shrink();
+    }
   }
 }
 

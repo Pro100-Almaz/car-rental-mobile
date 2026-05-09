@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/providers/auth_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../l10n/app_localizations.dart';
 
-class RegisterScreen extends StatefulWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   int _step = 0;
 
   final _nameCtrl = TextEditingController();
@@ -21,6 +23,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordCtrl = TextEditingController();
   bool _obscure = true;
   bool _agreed = false;
+  bool _loading = false;
+
+  String? _phoneError;
+  String? _nameError;
+  String? _passwordError;
+  String? _termsError;
 
   @override
   void dispose() {
@@ -30,12 +38,47 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _onPrimary() {
+  Future<void> _onPrimary() async {
     if (_step == 0) {
+      final phone = _phoneCtrl.text.trim();
+      if (phone.isEmpty) {
+        setState(() => _phoneError = 'Phone number is required');
+        return;
+      }
+      setState(() => _phoneError = null);
       setState(() => _step = 1);
       return;
     }
-    context.go('/home');
+
+    final name = _nameCtrl.text.trim();
+    final password = _passwordCtrl.text;
+    String? nameErr;
+    String? passwordErr;
+    String? termsErr;
+
+    if (name.isEmpty) nameErr = 'Name is required';
+    if (password.length < 6) passwordErr = 'Password must be at least 6 characters';
+    if (!_agreed) termsErr = 'You must agree to the terms';
+
+    setState(() {
+      _nameError = nameErr;
+      _passwordError = passwordErr;
+      _termsError = termsErr;
+    });
+
+    if (nameErr != null || passwordErr != null || termsErr != null) return;
+
+    setState(() => _loading = true);
+    final ok = await ref.read(currentUserProvider.notifier).register(
+          phone: _phoneCtrl.text.trim(),
+          name: name,
+          password: password,
+        );
+    if (!mounted) return;
+    setState(() => _loading = false);
+    if (ok) {
+      context.push('/otp', extra: {'phone': _phoneCtrl.text.trim()});
+    }
   }
 
   bool get _canContinue {
@@ -68,6 +111,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ? _PhoneStep(
                         key: const ValueKey('phone'),
                         phoneCtrl: _phoneCtrl,
+                        phoneError: _phoneError,
                       )
                     : _DetailsStep(
                         key: const ValueKey('details'),
@@ -75,6 +119,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         passwordCtrl: _passwordCtrl,
                         obscure: _obscure,
                         agreed: _agreed,
+                        nameError: _nameError,
+                        passwordError: _passwordError,
+                        termsError: _termsError,
                         onToggleObscure: () => setState(() => _obscure = !_obscure),
                         onToggleAgreed: (v) => setState(() => _agreed = v ?? false),
                         onLogin: () {
@@ -93,11 +140,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 180),
-                opacity: _canContinue ? 1 : 0.5,
+                opacity: (_canContinue && !_loading) ? 1 : 0.5,
                 child: PrimaryButton(
-                  label: _step == 0
-                      ? l10n.commonContinue
-                      : l10n.registerSubmit,
+                  label: _loading
+                      ? '...'
+                      : _step == 0
+                          ? l10n.commonContinue
+                          : l10n.registerSubmit,
                   icon: _step == 0
                       ? Icons.arrow_forward_rounded
                       : Icons.check_rounded,
@@ -172,9 +221,14 @@ class _ProgressDots extends StatelessWidget {
 }
 
 class _PhoneStep extends StatelessWidget {
-  const _PhoneStep({super.key, required this.phoneCtrl});
+  const _PhoneStep({
+    super.key,
+    required this.phoneCtrl,
+    this.phoneError,
+  });
 
   final TextEditingController phoneCtrl;
+  final String? phoneError;
 
   @override
   Widget build(BuildContext context) {
@@ -207,6 +261,16 @@ class _PhoneStep extends StatelessWidget {
             hint: l10n.commonPhoneHint,
             keyboardType: TextInputType.phone,
           ),
+          if (phoneError != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              phoneError!,
+              style: const TextStyle(
+                color: AppColors.error,
+                fontSize: 12,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -223,6 +287,9 @@ class _DetailsStep extends StatelessWidget {
     required this.onToggleObscure,
     required this.onToggleAgreed,
     required this.onLogin,
+    this.nameError,
+    this.passwordError,
+    this.termsError,
   });
 
   final TextEditingController nameCtrl;
@@ -232,6 +299,9 @@ class _DetailsStep extends StatelessWidget {
   final VoidCallback onToggleObscure;
   final ValueChanged<bool?> onToggleAgreed;
   final VoidCallback onLogin;
+  final String? nameError;
+  final String? passwordError;
+  final String? termsError;
 
   @override
   Widget build(BuildContext context) {
@@ -263,6 +333,13 @@ class _DetailsStep extends StatelessWidget {
             controller: nameCtrl,
             hint: l10n.commonNameHint,
           ),
+          if (nameError != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              nameError!,
+              style: const TextStyle(color: AppColors.error, fontSize: 12),
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
           _Field(
             label: l10n.commonPassword,
@@ -278,6 +355,13 @@ class _DetailsStep extends StatelessWidget {
               ),
             ),
           ),
+          if (passwordError != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              passwordError!,
+              style: const TextStyle(color: AppColors.error, fontSize: 12),
+            ),
+          ],
           const SizedBox(height: AppSpacing.xl),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,6 +413,13 @@ class _DetailsStep extends StatelessWidget {
               ),
             ],
           ),
+          if (termsError != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              termsError!,
+              style: const TextStyle(color: AppColors.error, fontSize: 12),
+            ),
+          ],
           const SizedBox(height: AppSpacing.xxl),
           Row(
             children: [

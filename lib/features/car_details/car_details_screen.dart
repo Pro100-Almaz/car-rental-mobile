@@ -1,48 +1,61 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/providers/providers.dart';
 import '../../core/widgets/category_chip.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../l10n/app_localizations.dart';
 import '../home/data/sample_cars.dart';
 
-class CarDetailsScreen extends StatelessWidget {
+class CarDetailsScreen extends ConsumerWidget {
   const CarDetailsScreen({super.key, required this.carId});
 
   final String carId;
 
-  CarListing get _car => [...kNearbyCars, ...kTopRated].firstWhere(
-        (c) => c.id == carId,
-        orElse: () => kNearbyCars.first,
-      );
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppL10n.of(context);
-    final CarListing car = _car;
-    final int dailyTotal = car.pricePerDay * 3;
-    const int insurance = 3000;
-    const int serviceFee = 1500;
-    final int total = dailyTotal + insurance + serviceFee;
+    final car = ref.watch(carByIdProvider(carId));
+    if (car == null) {
+      return Scaffold(
+        body: Center(child: Text('Car not found')),
+      );
+    }
+
+    final startDate = ref.watch(bookingStartDateProvider);
+    final endDate = ref.watch(bookingEndDateProvider);
+    final days = (startDate != null && endDate != null)
+        ? endDate.difference(startDate).inDays.clamp(1, 365)
+        : 3;
+    final dailyTotal = car.pricePerDay * days;
+    final insurance = (car.pricePerDay * 0.15).round();
+    final serviceFee = (car.pricePerDay * 0.08).round();
+    final total = dailyTotal + insurance + serviceFee;
 
     return Scaffold(
       bottomNavigationBar: _BookNowBar(
         label: l10n.detailsBookNow,
-        onBook: () => ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.detailsBookedToast(car.name))),
-        ),
+        onBook: () {
+          final s = startDate ?? DateTime.now().add(const Duration(days: 1));
+          final e = endDate ?? s.add(const Duration(days: 3));
+          ref.read(bookingStartDateProvider.notifier).state = s;
+          ref.read(bookingEndDateProvider.notifier).state = e;
+          context.push('/booking/confirm/$carId', extra: {
+            'startDate': s,
+            'endDate': e,
+          });
+        },
       ),
       body: CustomScrollView(
         slivers: [
           _Hero(car: car, onBack: () => context.pop()),
           SliverToBoxAdapter(
-            child: Container(
-              decoration: const BoxDecoration(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
-              ),
+            child: Padding(
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, AppSpacing.xl,
               ),
@@ -72,10 +85,11 @@ class CarDetailsScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xl),
-                  const _AvailabilityCard(),
+                  _DatePickerCard(carId: carId),
                   const SizedBox(height: AppSpacing.xl),
                   _PaymentCard(
                     pricePerDay: car.pricePerDay,
+                    days: days,
                     dailyTotal: dailyTotal,
                     insurance: insurance,
                     serviceFee: serviceFee,
@@ -116,14 +130,8 @@ class _Hero extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _CircleButton(
-                    icon: Icons.arrow_back_rounded,
-                    onTap: onBack,
-                  ),
-                  _CircleButton(
-                    icon: Icons.favorite_outline_rounded,
-                    onTap: () {},
-                  ),
+                  _CircleButton(icon: Icons.arrow_back_rounded, onTap: onBack),
+                  _CircleButton(icon: Icons.favorite_outline_rounded, onTap: () {}),
                 ],
               ),
             ),
@@ -267,16 +275,17 @@ class _Specs extends StatelessWidget {
   }
 }
 
-class _AvailabilityCard extends StatelessWidget {
-  const _AvailabilityCard();
+class _DatePickerCard extends ConsumerWidget {
+  const _DatePickerCard({required this.carId});
+  final String carId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppL10n.of(context);
-    final List<String> dayLabels = [
-      l10n.dayMon, l10n.dayTue, l10n.dayWed,
-      l10n.dayThu, l10n.dayFri, l10n.daySat, l10n.daySun,
-    ];
+    final startDate = ref.watch(bookingStartDateProvider);
+    final endDate = ref.watch(bookingEndDateProvider);
+    final fmt = DateFormat('dd MMM yyyy');
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -287,113 +296,151 @@ class _AvailabilityCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  l10n.detailsAvailability,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.neutral900,
-                  ),
-                ),
-              ),
-              Text(
-                l10n.detailsCalendarMonth,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.primary, size: 20),
-            ],
+          Text(
+            l10n.detailsAvailability,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.neutral900,
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
           Row(
-            children: dayLabels
-                .map(
-                  (l) => Expanded(
-                    child: Text(
-                      l,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.neutral500,
-                      ),
+            children: [
+              Expanded(
+                child: _DateField(
+                  label: 'Pick-up',
+                  value: startDate != null ? fmt.format(startDate) : 'Select date',
+                  icon: Icons.calendar_today_outlined,
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: startDate ?? DateTime.now().add(const Duration(days: 1)),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 90)),
+                    );
+                    if (picked != null) {
+                      ref.read(bookingStartDateProvider.notifier).state = picked;
+                      final end = ref.read(bookingEndDateProvider);
+                      if (end == null || end.isBefore(picked.add(const Duration(days: 1)))) {
+                        ref.read(bookingEndDateProvider.notifier).state =
+                            picked.add(const Duration(days: 1));
+                      }
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: _DateField(
+                  label: 'Return',
+                  value: endDate != null ? fmt.format(endDate) : 'Select date',
+                  icon: Icons.calendar_today_outlined,
+                  onTap: () async {
+                    final start = ref.read(bookingStartDateProvider) ??
+                        DateTime.now().add(const Duration(days: 1));
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: endDate ?? start.add(const Duration(days: 1)),
+                      firstDate: start.add(const Duration(days: 1)),
+                      lastDate: start.add(const Duration(days: 90)),
+                    );
+                    if (picked != null) {
+                      ref.read(bookingEndDateProvider.notifier).state = picked;
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+          if (startDate != null && endDate != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 16, color: AppColors.primary),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    '${endDate.difference(startDate).inDays} day${endDate.difference(startDate).inDays != 1 ? 's' : ''} rental',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
                     ),
                   ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _CalendarGrid(),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-class _CalendarGrid extends StatelessWidget {
-  static const List<int> _days = [
-    28, 29, 30, 1, 2, 3, 4,
-    5, 6, 7, 8, 9, 10, 11,
-  ];
+class _DateField extends StatelessWidget {
+  const _DateField({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.onTap,
+  });
 
-  static const Set<int> _selected = {7, 8, 9};
+  final String label;
+  final String value;
+  final IconData icon;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (int row = 0; row < 2; row++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-            child: Row(
-              children: List.generate(7, (i) {
-                final int idx = row * 7 + i;
-                final int day = _days[idx];
-                final bool placeholder = day > 25 && row == 0 && i < 3;
-                final bool isSelected = _selected.contains(day);
-                return Expanded(
-                  child: Container(
-                    height: 36,
-                    margin: const EdgeInsets.symmetric(horizontal: 1),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.primaryLight
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.horizontal(
-                        left: isSelected && day == _selected.first
-                            ? const Radius.circular(AppRadius.md)
-                            : Radius.zero,
-                        right: isSelected && day == _selected.last
-                            ? const Radius.circular(AppRadius.md)
-                            : Radius.zero,
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '$day',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-                        color: placeholder
-                            ? AppColors.neutral300
-                            : isSelected
-                                ? AppColors.primary
-                                : AppColors.neutral900,
-                      ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.neutral50,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.neutral300),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.neutral500,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              children: [
+                Icon(icon, size: 16, color: AppColors.primary),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.neutral900,
                     ),
                   ),
-                );
-              }),
+                ),
+              ],
             ),
-          ),
-      ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -401,6 +448,7 @@ class _CalendarGrid extends StatelessWidget {
 class _PaymentCard extends StatelessWidget {
   const _PaymentCard({
     required this.pricePerDay,
+    required this.days,
     required this.dailyTotal,
     required this.insurance,
     required this.serviceFee,
@@ -408,6 +456,7 @@ class _PaymentCard extends StatelessWidget {
   });
 
   final int pricePerDay;
+  final int days;
   final int dailyTotal;
   final int insurance;
   final int serviceFee;
@@ -437,7 +486,7 @@ class _PaymentCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          _Line(label: l10n.detailsDailyLine('$pricePerDay', 3), value: dailyTotal),
+          _Line(label: l10n.detailsDailyLine('$pricePerDay', days), value: dailyTotal),
           const SizedBox(height: AppSpacing.sm),
           _Line(label: l10n.detailsInsurance, value: insurance),
           const SizedBox(height: AppSpacing.sm),
@@ -514,7 +563,7 @@ class _BookNowBar extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        border: Border(
+        border: const Border(
           top: BorderSide(color: AppColors.neutral200, width: 0.5),
         ),
       ),

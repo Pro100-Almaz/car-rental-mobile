@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/providers/auth_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/primary_button.dart';
@@ -85,20 +87,58 @@ class _Branding extends StatelessWidget {
   }
 }
 
-class _LoginCard extends StatefulWidget {
+class _LoginCard extends ConsumerStatefulWidget {
   @override
-  State<_LoginCard> createState() => _LoginCardState();
+  ConsumerState<_LoginCard> createState() => _LoginCardState();
 }
 
-class _LoginCardState extends State<_LoginCard> {
+class _LoginCardState extends ConsumerState<_LoginCard> {
   final _phoneCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+
+  String? _phoneError;
+  String? _passwordError;
+  String? _loginError;
+  bool _loading = false;
 
   @override
   void dispose() {
     _phoneCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _onLogin() async {
+    final phone = _phoneCtrl.text.trim();
+    final password = _passwordCtrl.text;
+
+    String? phoneErr;
+    String? passwordErr;
+
+    if (phone.isEmpty) phoneErr = 'Phone number is required';
+    if (password.length < 6) passwordErr = 'Password must be at least 6 characters';
+
+    setState(() {
+      _phoneError = phoneErr;
+      _passwordError = passwordErr;
+      _loginError = null;
+    });
+
+    if (phoneErr != null || passwordErr != null) return;
+
+    setState(() => _loading = true);
+    final ok = await ref
+        .read(currentUserProvider.notifier)
+        .login(phone: phone, password: password);
+    if (!mounted) return;
+    if (ok) {
+      context.go('/home');
+    } else {
+      setState(() {
+        _loading = false;
+        _loginError = 'Invalid credentials';
+      });
+    }
   }
 
   @override
@@ -121,6 +161,19 @@ class _LoginCardState extends State<_LoginCard> {
             icon: Icons.phone_outlined,
             keyboardType: TextInputType.phone,
           ),
+          if (_phoneError != null) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                _phoneError!,
+                style: const TextStyle(
+                  color: AppColors.error,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
           _Field(
             label: l10n.commonPassword,
@@ -145,10 +198,33 @@ class _LoginCardState extends State<_LoginCard> {
               ),
             ),
           ),
+          if (_passwordError != null) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                _passwordError!,
+                style: const TextStyle(
+                  color: AppColors.error,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+          if (_loginError != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              _loginError!,
+              style: const TextStyle(
+                color: AppColors.error,
+                fontSize: 12,
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.xl),
           PrimaryButton(
             label: l10n.loginButton,
-            onPressed: () => context.go('/home'),
+            onPressed: _loading ? null : _onLogin,
           ),
           const SizedBox(height: AppSpacing.xl),
           _Divider(label: l10n.loginDivider),
