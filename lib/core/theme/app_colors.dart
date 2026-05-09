@@ -1,58 +1,83 @@
 import 'package:flutter/material.dart';
 
-/// Editorial Fluidity palette (Stitch CarShare design system).
+/// AutoFleet design system color tokens.
 class AppColors {
   AppColors._();
 
-  static const Color primary = Color(0xFF00685F);
-  static const Color primaryContainer = Color(0xFF008378);
-  static const Color primaryFixedDim = Color(0xFF66D9CA);
-  static const Color primaryFixed = Color(0xFF84F6E6);
-  static const Color onPrimary = Color(0xFFFFFFFF);
-  static const Color onPrimaryContainer = Color(0xFFF4FFFC);
+  // Primary — Blue (trust, technology, professional)
+  static const Color primary = Color(0xFF1A73E8);
+  static const Color primaryDark = Color(0xFF1557B0);
+  static const Color primaryLight = Color(0xFFE8F0FE);
 
-  static const Color secondary = Color(0xFFAC331D);
-  static const Color secondaryContainer = Color(0xFFFE6E52);
-  static const Color onSecondary = Color(0xFFFFFFFF);
+  // Secondary — Teal (growth, freshness, action)
+  static const Color secondary = Color(0xFF00BFA5);
+  static const Color secondaryDark = Color(0xFF00897B);
+  static const Color secondaryLight = Color(0xFFE0F7FA);
 
-  static const Color tertiary = Color(0xFF934626);
+  // Neutrals
+  static const Color neutral900 = Color(0xFF1A1A2E);
+  static const Color neutral700 = Color(0xFF4A4A68);
+  static const Color neutral500 = Color(0xFF8E8EA0);
+  static const Color neutral300 = Color(0xFFD1D1DB);
+  static const Color neutral200 = Color(0xFFE8E8EE);
+  static const Color neutral100 = Color(0xFFF4F4F8);
+  static const Color neutral50 = Color(0xFFFAFAFE);
+  static const Color white = Color(0xFFFFFFFF);
 
-  static const Color error = Color(0xFFBA1A1A);
+  // Status
+  static const Color success = Color(0xFF16A34A);
+  static const Color warning = Color(0xFFEAB308);
+  static const Color error = Color(0xFFDC2626);
+  static const Color info = Color(0xFF2563EB);
 
-  static const Color surface = Color(0xFFF8F9FA);
-  static const Color surfaceContainerLowest = Color(0xFFFFFFFF);
-  static const Color surfaceContainerLow = Color(0xFFF3F4F5);
-  static const Color surfaceContainer = Color(0xFFEDEEEF);
-  static const Color surfaceContainerHigh = Color(0xFFE7E8E9);
-  static const Color surfaceContainerHighest = Color(0xFFE1E3E4);
-  static const Color surfaceVariant = Color(0xFFE1E3E4);
+  // Vehicle status
+  static const Color statusAvailable = Color(0xFF16A34A);
+  static const Color statusReserved = Color(0xFF7C3AED);
+  static const Color statusRented = Color(0xFF2563EB);
+  static const Color statusReturning = Color(0xFFEAB308);
+  static const Color statusInService = Color(0xFFF97316);
+  static const Color statusInWash = Color(0xFF06B6D4);
+  static const Color statusDecommissioned = Color(0xFF6B7280);
 
-  static const Color onSurface = Color(0xFF191C1D);
-  static const Color onSurfaceVariant = Color(0xFF3D4947);
-  static const Color outline = Color(0xFF6D7A77);
-  static const Color outlineVariant = Color(0xFFBCC9C6);
+  // Star / rating
+  static const Color star = Color(0xFFEAB308);
 
-  static const Color star = Color(0xFFFFB400);
+  // Dark mode
+  static const Color darkBackground = Color(0xFF0F0F1A);
+  static const Color darkSurface = Color(0xFF1A1A2E);
+  static const Color darkSurfaceAlt = Color(0xFF242444);
+  static const Color darkBorder = Color(0xFF2D2D4A);
+  static const Color darkTextPrimary = Color(0xFFE8E8F0);
+  static const Color darkTextSecondary = Color(0xFF8E8EA0);
+
+  // Semantic aliases for easy migration
+  static const Color onPrimary = white;
+  static const Color surface = neutral100;
+  static const Color onSurface = neutral900;
+  static const Color onSurfaceVariant = neutral700;
+  static const Color outline = neutral500;
+  static const Color outlineVariant = neutral300;
 
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [primary, primaryContainer],
+    colors: [primary, primaryDark],
   );
 
-  static const List<BoxShadow> cloudShadow = [
-    BoxShadow(
-      color: Color(0x0F191C1D),
-      blurRadius: 32,
-      offset: Offset(0, 12),
-    ),
+  // Elevation shadows (from spec)
+  static const List<BoxShadow> elevation1 = [
+    BoxShadow(color: Color(0x14000000), blurRadius: 3, offset: Offset(0, 1)),
   ];
 
-  static const List<BoxShadow> softShadow = [
-    BoxShadow(
-      color: Color(0x08191C1D),
-      blurRadius: 16,
-      offset: Offset(0, 6),
-    ),
+  static const List<BoxShadow> elevation2 = [
+    BoxShadow(color: Color(0x1A000000), blurRadius: 12, offset: Offset(0, 4)),
+  ];
+
+  static const List<BoxShadow> elevation3 = [
+    BoxShadow(color: Color(0x1F000000), blurRadius: 24, offset: Offset(0, 8)),
+  ];
+
+  static const List<BoxShadow> elevation4 = [
+    BoxShadow(color: Color(0x29000000), blurRadius: 48, offset: Offset(0, 16)),
   ];
 }

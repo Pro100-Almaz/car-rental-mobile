@@ -1,0 +1,154 @@
+{
+  "@@locale": "ru",
+  "appName": "AutoFleet",
+  "brandTagline": "Каршеринг — просто и удобно.",
+
+  "commonLogin": "Войти",
+  "commonContinue": "Продолжить",
+  "commonBack": "Назад",
+  "commonOrContinueWith": "Или продолжить через",
+  "commonContinueWithGoogle": "Продолжить через Google",
+  "commonEmail": "Электронная почта",
+  "commonPassword": "Пароль",
+  "commonPhone": "Номер телефона",
+  "commonFullName": "Имя и фамилия",
+  "commonDob": "Дата рождения",
+  "commonDobHint": "ДД / ММ / ГГГГ",
+  "commonEmailHint": "hello@example.com",
+  "commonNameHint": "Темирлан Жумабаев",
+  "commonPhoneHint": "+7 (700) 000-00-00",
+
+  "splashFindCar": "Найти машину",
+  "splashAlreadyHaveAccount": "Уже есть аккаунт? ",
+
+  "welcomeSlide1Title": "Найдите подходящее авто",
+  "welcomeSlide1Subtitle": "Сотни проверенных автомобилей доступны рядом с вами прямо сейчас.",
+  "welcomeSlide2Title": "Бронируйте за секунды",
+  "welcomeSlide2Subtitle": "Выберите даты, посмотрите прозрачные цены и подтвердите мгновенно.",
+  "welcomeSlide3Title": "Езжайте и верните",
+  "welcomeSlide3Subtitle": "Цифровая регистрация, поддержка 24/7 и простой возврат.",
+
+  "loginSubtitle": "С возвращением в AutoFleet.",
+  "loginForgot": "Забыли?",
+  "loginDivider": "Или продолжить через",
+  "loginButton": "Войти",
+  "loginNoAccount": "Нет аккаунта?",
+  "loginSignup": "Регистрация",
+
+  "registerStepPhoneTitle": "Введите номер телефона",
+  "registerStepPhoneSubtitle": "Мы отправим вам код подтверждения по SMS.",
+  "registerStepDetailsTitle": "Создайте аккаунт",
+  "registerStepDetailsSubtitle": "Немного данных, чтобы начать.",
+  "registerAgreePrefix": "Я согласен с ",
+  "registerAgreeTerms": "Условиями использования",
+  "registerAgreeAnd": " и ",
+  "registerAgreePrivacy": "Политикой конфиденциальности",
+  "registerSubmit": "Создать аккаунт",
+
+  "homeHeadline": "Найдите авто\nрядом с вами",
+  "homeSearchWhere": "Куда едем?",
+  "homeSearchWhen": "Когда?",
+  "homeNearby": "Рядом",
+  "homeTopRated": "Лучшие по рейтингу",
+  "homeViewAll": "Все",
+
+  "categoryAll": "Все",
+  "categoryEconomy": "Эконом",
+  "categoryComfort": "Комфорт",
+  "categoryBusiness": "Бизнес",
+  "categorySuv": "Внедорожник",
+
+  "carMetersAway": "{meters} м от вас",
+  "@carMetersAway": {
+    "placeholders": { "meters": { "type": "String" } }
+  },
+  "carReviewsPlus": "{rating} ({count}+ отзывов)",
+  "@carReviewsPlus": {
+    "placeholders": {
+      "rating": { "type": "String" },
+      "count": { "type": "int" }
+    }
+  },
+  "carReviewsParen": "({count} отзывов)",
+  "@carReviewsParen": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "carPerHour": "/ч",
+  "carPerDay": "/сутки",
+  "carSeats": "{count} мест",
+  "@carSeats": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "detailsAbout": "ОБ АВТОМОБИЛЕ",
+  "detailsAvailability": "Доступность",
+  "detailsPaymentSummary": "ИТОГО К ОПЛАТЕ",
+  "detailsDailyLine": "₸{price}/сутки × {days} дней",
+  "@detailsDailyLine": {
+    "placeholders": {
+      "price": { "type": "String" },
+      "days": { "type": "int" }
+    }
+  },
+  "detailsInsurance": "Страховка",
+  "detailsServiceFee": "Сервисный сбор",
+  "detailsTotal": "Итого",
+  "detailsBookNow": "Забронировать",
+  "detailsBookedToast": "Вы забронировали {car}!",
+  "@detailsBookedToast": {
+    "placeholders": { "car": { "type": "String" } }
+  },
+  "detailsCalendarMonth": "Сентябрь 2024",
+  "dayMon": "Пн",
+  "dayTue": "Вт",
+  "dayWed": "Ср",
+  "dayThu": "Чт",
+  "dayFri": "Пт",
+  "daySat": "Сб",
+  "daySun": "Вс",
+
+  "bookingsGreeting": "Мои бронирования",
+  "bookingsSubtitle": "Следите за предстоящими и прошлыми поездками.",
+  "bookingsTabUpcoming": "Предстоящие",
+  "bookingsTabActive": "Активные",
+  "bookingsTabCompleted": "Завершённые",
+  "bookingsTabCancelled": "Отменённые",
+  "bookingsManage": "Управлять",
+  "bookingsOpenTrip": "Открыть поездку",
+  "bookingsNextRideTitle": "Нужна ещё одна поездка?",
+  "bookingsNextRideSubtitle": "Выберите авто и забронируйте менее чем за минуту.",
+  "bookingsFindCar": "Найти авто",
+  "bookingsStatusConfirmed": "Подтверждено",
+  "bookingsDateRange1": "12 – 15 окт",
+  "bookingsDateRange2": "02 – 05 ноя",
+
+  "walletTitle": "Кошелёк",
+  "walletBalance": "Текущий баланс",
+  "walletTopUp": "Пополнить",
+  "walletHistory": "История",
+  "walletPaymentMethods": "Способы оплаты",
+  "walletBankCard": "Банковская карта",
+  "walletAddMethod": "Добавить способ оплаты",
+  "walletRecentTransactions": "Последние транзакции",
+  "walletDepositRefund": "Возврат депозита",
+
+  "profileVerified": "Подтверждён",
+  "profileAccountSection": "Аккаунт",
+  "profilePersonalInfo": "Личные данные",
+  "profileDocuments": "Документы",
+  "profileTrustScore": "Уровень доверия",
+  "profileSettingsSection": "Настройки",
+  "profileNotifications": "Уведомления",
+  "profileLanguage": "Язык",
+  "profileTheme": "Внешний вид",
+  "profileSupportSection": "Поддержка",
+  "profileHelp": "Помощь и FAQ",
+  "profileTerms": "Условия и конфиденциальность",
+  "profileLogout": "Выйти",
+
+  "navHome": "Главная",
+  "navBookings": "Брони",
+  "navActive": "Активная",
+  "navWallet": "Кошелёк",
+  "navProfile": "Профиль"
+}

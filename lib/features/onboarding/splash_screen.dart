@@ -1,12 +1,9 @@
-import 'dart:ui';
-
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
-import '../../core/widgets/primary_button.dart';
+import '../../l10n/app_localizations.dart';
 
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
@@ -14,73 +11,42 @@ class SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
-      body: DecoratedBox(
+      body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF0F9B8E), AppColors.surface],
+            colors: [AppColors.primary, Color(0xFF0F3D91)],
           ),
         ),
-        child: Stack(
-          children: [
-            const _DecorativeBlurs(),
-            SafeArea(
-              child: Padding(
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xxl,
+                  horizontal: AppSpacing.xl,
                   vertical: AppSpacing.xl,
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    _BrandHeader(),
-                    _HeroImage(),
-                    _ActionStack(),
-                  ],
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight - AppSpacing.xl * 2,
+                  ),
+                  child: const IntrinsicHeight(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _BrandHeader(),
+                        _HeroCarousel(),
+                        _ActionStack(),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ],
+              );
+            },
+          ),
         ),
       ),
-    );
-  }
-}
-
-class _DecorativeBlurs extends StatelessWidget {
-  const _DecorativeBlurs();
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          top: -120,
-          right: -120,
-          child: Container(
-            width: 280,
-            height: 280,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.primary.withValues(alpha: 0.10),
-            ),
-          ),
-        ),
-        Positioned(
-          top: 200,
-          left: -80,
-          child: Container(
-            width: 200,
-            height: 200,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.primaryContainer.withValues(alpha: 0.10),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -90,45 +56,40 @@ class _BrandHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
     return Column(
       children: [
         const SizedBox(height: AppSpacing.xxl),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-            child: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-              ),
-              child: const Icon(
-                Icons.directions_car_rounded,
-                size: 36,
-                color: AppColors.onPrimaryContainer,
-              ),
-            ),
+        Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            color: AppColors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+          child: const Icon(
+            Icons.directions_car_rounded,
+            size: 36,
+            color: AppColors.white,
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        const Text(
-          'CarShare',
-          style: TextStyle(
-            fontSize: 38,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1,
-            color: AppColors.onPrimaryContainer,
+        Text(
+          l10n.appName,
+          style: const TextStyle(
+            fontSize: 36,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5,
+            color: AppColors.white,
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
-        const Text(
-          "Your car. Someone's journey.",
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          l10n.brandTagline,
           style: TextStyle(
-            color: AppColors.primary,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.2,
+            color: AppColors.white.withValues(alpha: 0.8),
+            fontWeight: FontWeight.w500,
+            fontSize: 15,
           ),
         ),
       ],
@@ -136,44 +97,171 @@ class _BrandHeader extends StatelessWidget {
   }
 }
 
-class _HeroImage extends StatelessWidget {
-  const _HeroImage();
+class _HeroCarousel extends StatefulWidget {
+  const _HeroCarousel();
+
+  @override
+  State<_HeroCarousel> createState() => _HeroCarouselState();
+}
+
+class _HeroCarouselState extends State<_HeroCarousel> {
+  late final PageController _controller;
+  int _page = 0;
+
+  static const List<String> _images = [
+    'assets/images/welcome/slide_1.png',
+    'assets/images/welcome/slide_2.png',
+    'assets/images/welcome/slide_3.png',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
+    final slides = <_SlideData>[
+      _SlideData(
+        image: _images[0],
+        title: l10n.welcomeSlide1Title,
+        subtitle: l10n.welcomeSlide1Subtitle,
+      ),
+      _SlideData(
+        image: _images[1],
+        title: l10n.welcomeSlide2Title,
+        subtitle: l10n.welcomeSlide2Subtitle,
+      ),
+      _SlideData(
+        image: _images[2],
+        title: l10n.welcomeSlide3Title,
+        subtitle: l10n.welcomeSlide3Subtitle,
+      ),
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 300,
+            child: PageView.builder(
+              controller: _controller,
+              itemCount: slides.length,
+              onPageChanged: (i) => setState(() => _page = i),
+              itemBuilder: (_, index) => _HeroSlide(data: slides[index]),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          _PageDots(count: slides.length, active: _page),
+        ],
+      ),
+    );
+  }
+}
+
+class _SlideData {
+  const _SlideData({
+    required this.image,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String image;
+  final String title;
+  final String subtitle;
+}
+
+class _HeroSlide extends StatelessWidget {
+  const _HeroSlide({required this.data});
+
+  final _SlideData data;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
-      child: AspectRatio(
-        aspectRatio: 1,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Transform.rotate(
-              angle: 0.05,
-              child: Transform.scale(
-                scale: 0.94,
-                child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+      child: Column(
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              child: Image.asset(
+                data.image,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.3),
+                    color: AppColors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppRadius.lg),
+                  ),
+                  child: const Icon(
+                    Icons.directions_car,
+                    color: AppColors.white,
+                    size: 64,
                   ),
                 ),
               ),
             ),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.lg),
-              child: CachedNetworkImage(
-                imageUrl:
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuBXnWfeiE6X4-i4TvJrQcK10iMZdqqknQYetNa9bUg0oXem84cAb6hi0qB3inCOBMc2u22gf5r2xOakRiR8pqNDTKjdZKeeOyjzh4e1z-yC0pU4o8SltBV4lEVwKexrl3i1VsBzn9M2rWB2xFliLtGXXRqFphAd-Ph9y1I3M9HnpP1GVDdHIh2dmFqjR4SM8Eh3KnzSxJYjMnm9AlF_3k1868v-71_-VjARJjFs3xQ0eHNfbbVzo18nWs8VFkgwXydTbjcN4wTR_cRC',
-                fit: BoxFit.cover,
-                placeholder: (_, _) => Container(
-                  color: AppColors.surfaceContainerHigh,
-                ),
-              ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            data.title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            data.subtitle,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.white.withValues(alpha: 0.75),
+              fontWeight: FontWeight.w400,
+              fontSize: 14,
+              height: 1.4,
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _PageDots extends StatelessWidget {
+  const _PageDots({required this.count, required this.active});
+
+  final int count;
+  final int active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(count, (i) {
+        final isActive = i == active;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          width: isActive ? 24 : 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: isActive
+                ? AppColors.white
+                : AppColors.white.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+          ),
+        );
+      }),
     );
   }
 }
@@ -183,72 +271,50 @@ class _ActionStack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
     return Column(
       children: [
-        PrimaryButton(
-          label: 'Find a car',
-          onPressed: () => context.go('/login'),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton(
+            onPressed: () => context.go('/login'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.white,
+              foregroundColor: AppColors.primary,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
+            ),
+            child: Text(l10n.commonLogin),
+          ),
         ),
         const SizedBox(height: AppSpacing.md),
-        Material(
-          color: Colors.white.withValues(alpha: 0.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-            side: BorderSide(
-              color: AppColors.primary.withValues(alpha: 0.2),
-              width: 2,
-            ),
-          ),
-          child: InkWell(
-            onTap: () => context.push('/register'),
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-            child: const SizedBox(
-              height: 56,
-              child: Center(
-                child: Text(
-                  'List your car',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                  ),
-                ),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: OutlinedButton(
+            onPressed: () => context.push('/register'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.white,
+              side: BorderSide(color: AppColors.white.withValues(alpha: 0.4)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
               ),
             ),
+            child: Text(l10n.loginSignup),
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        GestureDetector(
-          onTap: () => context.push('/login'),
-          child: const Text.rich(
-            TextSpan(
-              text: 'Already have an account? ',
-              style: TextStyle(
-                color: AppColors.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-                fontSize: 13,
-              ),
-              children: [
-                TextSpan(
-                  text: 'Log in',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Container(
-          width: 120,
-          height: 5,
-          decoration: BoxDecoration(
-            color: AppColors.onSurface.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-          ),
-        ),
       ],
     );
   }

@@ -6,8 +6,24 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../core/widgets/category_chip.dart';
 import '../../core/widgets/glass_app_bar.dart';
+import '../../l10n/app_localizations.dart';
 import 'data/sample_cars.dart';
 import 'widgets/car_card.dart';
+
+String _categoryLabel(AppL10n l10n, String id) {
+  switch (id) {
+    case 'economy':
+      return l10n.categoryEconomy;
+    case 'comfort':
+      return l10n.categoryComfort;
+    case 'business':
+      return l10n.categoryBusiness;
+    case 'suv':
+      return l10n.categorySuv;
+    default:
+      return l10n.categoryAll;
+  }
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,117 +36,111 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedCategory = 'all';
   AppNavDestination _nav = AppNavDestination.home;
 
+  void _onNav(AppNavDestination d) {
+    if (d == _nav) return;
+    setState(() => _nav = d);
+    switch (d) {
+      case AppNavDestination.bookings:
+        context.go('/bookings');
+      case AppNavDestination.wallet:
+        context.go('/wallet');
+      case AppNavDestination.profile:
+        context.go('/profile');
+      default:
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
     return Scaffold(
-      backgroundColor: AppColors.surface,
-      extendBody: true,
-      extendBodyBehindAppBar: true,
       appBar: const GlassAppBar(
         avatarUrl:
             'https://lh3.googleusercontent.com/aida-public/AB6AXuBxmcWrd2jPGzuah_fpGZ23pCaYfvQE_NSG2iturHwMmVrgEZRk4InsvS28fVL8oOulzlhb224tTHb3AXtmGf1n3_nSIcs0mH2wT1D_SoFZNkibTfH9sAP3d8z92wZrtIWiTfvfRtIClwdpFAAzLcjqD9I7K1DYGTM9IAWZ9DCsy4_jQE5oINByoD4N74HSOYFBByqcWzJRiLUeR1BIJicJ37pECJJCFCLu4B-_CF_0NiREO_W5PEl-t6ACXpqkhJ-ZbsjdXsCgxTR9',
       ),
-      bottomNavigationBar: AppBottomNav(
-        current: _nav,
-        onSelect: (d) {
-          setState(() => _nav = d);
-          switch (d) {
-            case AppNavDestination.bookings:
-              context.push('/bookings');
-              break;
-            case AppNavDestination.profile:
-              context.push('/owner');
-              break;
-            default:
-              break;
-          }
-        },
-      ),
+      bottomNavigationBar: AppBottomNav(current: _nav, onSelect: _onNav),
       body: ListView(
-        padding: EdgeInsets.fromLTRB(
-          0,
-          MediaQuery.paddingOf(context).top + 84,
-          0,
-          MediaQuery.paddingOf(context).bottom + 120,
+        padding: EdgeInsets.only(
+          top: AppSpacing.lg,
+          bottom: MediaQuery.paddingOf(context).bottom + AppSpacing.xl,
         ),
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: Text(
-              'Find the perfect ride\nfor your next adventure.',
-              style: TextStyle(
+              l10n.homeHeadline,
+              style: const TextStyle(
                 fontSize: 28,
-                fontWeight: FontWeight.w800,
-                height: 1.15,
-                letterSpacing: -0.5,
-                color: AppColors.onSurface,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
+                color: AppColors.neutral900,
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.xl),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-            child: _SearchBar(),
+          const SizedBox(height: AppSpacing.lg),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: _SearchBar(
+              whereHint: l10n.homeSearchWhere,
+              whenHint: l10n.homeSearchWhen,
+            ),
           ),
-          const SizedBox(height: AppSpacing.xxl),
+          const SizedBox(height: AppSpacing.xl),
           SizedBox(
             height: 44,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               itemCount: kCarCategories.length,
-              separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.md),
+              separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
               itemBuilder: (_, i) {
                 final c = kCarCategories[i];
                 return CategoryChip(
-                  label: c.label,
+                  label: _categoryLabel(l10n, c.id),
                   selected: c.id == _selectedCategory,
                   onTap: () => setState(() => _selectedCategory = c.id),
                 );
               },
             ),
           ),
-          const SizedBox(height: AppSpacing.xxl),
+          const SizedBox(height: AppSpacing.xl),
           _SectionHeader(
-            eyebrow: 'AVAILABLE NOW',
-            title: 'Nearby cars',
+            title: l10n.homeNearby,
+            actionLabel: l10n.homeViewAll,
             onAction: () {},
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
           SizedBox(
-            height: 304,
+            height: 280,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               itemCount: kNearbyCars.length,
-              separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.xl),
+              separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.md),
               itemBuilder: (_, i) => CarFeatureCard(
                 car: kNearbyCars[i],
                 onTap: () => context.push('/car/${kNearbyCars[i].id}'),
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.xxl),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+          const SizedBox(height: AppSpacing.xl),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: Text(
-              'Top rated',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: AppColors.onSurface,
-                letterSpacing: -0.3,
+              l10n.homeTopRated,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppColors.neutral900,
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
           ...kTopRated.map(
             (c) => Padding(
               padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                0,
-                AppSpacing.xl,
-                AppSpacing.md,
+                AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md,
               ),
               child: CarListTile(
                 car: c,
@@ -145,44 +155,43 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _SearchBar extends StatelessWidget {
-  const _SearchBar();
+  const _SearchBar({required this.whereHint, required this.whenHint});
+
+  final String whereHint;
+  final String whenHint;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        boxShadow: AppColors.cloudShadow,
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.neutral300),
       ),
       child: Row(
         children: [
           Expanded(
             child: _SearchField(
-              icon: Icons.location_on_rounded,
-              hint: 'Where to?',
+              icon: Icons.location_on_outlined,
+              hint: whereHint,
             ),
           ),
-          Container(
-            width: 1,
-            height: 28,
-            color: AppColors.outlineVariant.withValues(alpha: 0.3),
-          ),
+          Container(width: 1, height: 28, color: AppColors.neutral200),
           Expanded(
             child: _SearchField(
-              icon: Icons.calendar_today_rounded,
-              hint: 'When?',
+              icon: Icons.calendar_today_outlined,
+              hint: whenHint,
             ),
           ),
           Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
               color: AppColors.primary,
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(AppRadius.md),
             ),
-            child: const Icon(Icons.search_rounded, color: AppColors.onPrimary, size: 22),
+            child: const Icon(Icons.search_rounded, color: AppColors.white, size: 20),
           ),
         ],
       ),
@@ -199,28 +208,18 @@ class _SearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: AppColors.primary),
+          Icon(icon, size: 18, color: AppColors.neutral500),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: hint,
-                isDense: true,
-                filled: false,
-                contentPadding: EdgeInsets.zero,
-                border: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                hintStyle: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.onSurfaceVariant.withValues(alpha: 0.55),
-                  fontWeight: FontWeight.w500,
-                ),
+            child: Text(
+              hint,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.neutral500,
               ),
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -231,57 +230,39 @@ class _SearchField extends StatelessWidget {
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
-    this.eyebrow,
     required this.title,
+    this.actionLabel,
     this.onAction,
   });
 
-  final String? eyebrow;
   final String title;
+  final String? actionLabel;
   final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (eyebrow != null)
-                  Text(
-                    eyebrow!,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.8,
-                      color: AppColors.secondary,
-                    ),
-                  ),
-                const SizedBox(height: 2),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.onSurface,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-              ],
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppColors.neutral900,
+              ),
             ),
           ),
-          if (onAction != null)
+          if (onAction != null && actionLabel != null)
             TextButton(
               onPressed: onAction,
-              child: const Text(
-                'View all',
-                style: TextStyle(
+              child: Text(
+                actionLabel!,
+                style: const TextStyle(
                   color: AppColors.primary,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),

@@ -18,22 +18,25 @@ class CategoryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.primary : AppColors.surfaceContainerHighest,
+      color: selected ? AppColors.primary : AppColors.white,
       borderRadius: BorderRadius.circular(AppRadius.pill),
-      elevation: selected ? 2 : 0,
-      shadowColor: AppColors.primary.withValues(alpha: 0.2),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+            border: selected
+                ? null
+                : Border.all(color: AppColors.neutral300),
+          ),
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
-              color: selected ? AppColors.onPrimary : AppColors.onSurfaceVariant,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: selected ? AppColors.white : AppColors.neutral700,
             ),
           ),
         ),
@@ -51,23 +54,23 @@ class SpecChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
+        color: AppColors.neutral100,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.neutral200),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: AppColors.primary, size: 20),
+          Icon(icon, color: AppColors.primary, size: 18),
           const SizedBox(width: AppSpacing.sm),
           Text(
-            label.toUpperCase(),
+            label,
             style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-              color: AppColors.onSurfaceVariant,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppColors.neutral700,
             ),
           ),
         ],

@@ -4,81 +4,38 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../l10n/app_localizations.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
     return Scaffold(
-      backgroundColor: AppColors.surface,
-      body: Stack(
-        children: [
-          const _GradientBlurs(),
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xl,
-                  vertical: AppSpacing.xxxl,
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 440),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const _Branding(subtitle: 'Your journey begins here.'),
-                      const SizedBox(height: AppSpacing.xxxl),
-                      _LoginCard(),
-                      const SizedBox(height: AppSpacing.xxl),
-                      _SignupPrompt(
-                        onTap: () => context.push('/register'),
-                      ),
-                    ],
-                  ),
-                ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xl,
+              vertical: AppSpacing.xxl,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _Branding(subtitle: l10n.loginSubtitle),
+                  const SizedBox(height: AppSpacing.xxxl),
+                  _LoginCard(),
+                  const SizedBox(height: AppSpacing.xxl),
+                  _SignupPrompt(onTap: () => context.push('/register')),
+                ],
               ),
             ),
           ),
-          const _BottomRibbon(),
-        ],
+        ),
       ),
-    );
-  }
-}
-
-class _GradientBlurs extends StatelessWidget {
-  const _GradientBlurs();
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          top: -120,
-          right: -120,
-          child: Container(
-            width: 380,
-            height: 380,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.primary.withValues(alpha: 0.06),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: -100,
-          left: -100,
-          child: Container(
-            width: 300,
-            height: 300,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.secondary.withValues(alpha: 0.06),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -95,32 +52,32 @@ class _Branding extends StatelessWidget {
           width: 64,
           height: 64,
           decoration: BoxDecoration(
-            color: AppColors.primaryContainer,
+            color: AppColors.primaryLight,
             borderRadius: BorderRadius.circular(AppRadius.lg),
-            boxShadow: AppColors.softShadow,
           ),
           child: const Icon(
             Icons.directions_car_rounded,
-            color: AppColors.onPrimaryContainer,
+            color: AppColors.primary,
             size: 32,
           ),
         ),
         const SizedBox(height: AppSpacing.xl),
-        const Text(
-          'CarShare',
-          style: TextStyle(
-            fontSize: 36,
-            fontWeight: FontWeight.w800,
+        Text(
+          AppL10n.of(context).appName,
+          style: const TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.w700,
             color: AppColors.primary,
-            letterSpacing: -1,
+            letterSpacing: -0.5,
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
           subtitle,
           style: const TextStyle(
-            color: AppColors.onSurfaceVariant,
-            fontWeight: FontWeight.w500,
+            color: AppColors.neutral500,
+            fontWeight: FontWeight.w400,
+            fontSize: 15,
           ),
         ),
       ],
@@ -134,37 +91,39 @@ class _LoginCard extends StatefulWidget {
 }
 
 class _LoginCardState extends State<_LoginCard> {
-  final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.xxl),
+      padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: AppColors.cloudShadow,
+        border: Border.all(color: AppColors.neutral200),
+        boxShadow: AppColors.elevation1,
       ),
       child: Column(
         children: [
           _Field(
-            label: 'Email address',
-            controller: _emailCtrl,
-            hint: 'hello@example.com',
-            icon: Icons.mail_outline_rounded,
-            keyboardType: TextInputType.emailAddress,
+            label: l10n.commonPhone,
+            controller: _phoneCtrl,
+            hint: l10n.commonPhoneHint,
+            icon: Icons.phone_outlined,
+            keyboardType: TextInputType.phone,
           ),
-          const SizedBox(height: AppSpacing.xl),
+          const SizedBox(height: AppSpacing.lg),
           _Field(
-            label: 'Password',
+            label: l10n.commonPassword,
             controller: _passwordCtrl,
             hint: '••••••••',
             icon: Icons.lock_outline_rounded,
@@ -176,29 +135,26 @@ class _LoginCardState extends State<_LoginCard> {
                 minimumSize: const Size(0, 0),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: const Text(
-                'Forgot?',
-                style: TextStyle(
+              child: Text(
+                l10n.loginForgot,
+                style: const TextStyle(
                   color: AppColors.primary,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   fontSize: 12,
                 ),
               ),
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
-          SizedBox(
-            width: double.infinity,
-            child: PrimaryButton(
-              label: 'Login',
-              onPressed: () => context.go('/home'),
-            ),
+          PrimaryButton(
+            label: l10n.loginButton,
+            onPressed: () => context.go('/home'),
           ),
           const SizedBox(height: AppSpacing.xl),
-          const _Divider(label: 'Or continue with'),
+          _Divider(label: l10n.loginDivider),
           const SizedBox(height: AppSpacing.xl),
           SecondaryButton(
-            label: 'Continue with Google',
+            label: l10n.commonContinueWithGoogle,
             icon: Container(
               width: 20,
               height: 20,
@@ -258,17 +214,16 @@ class _Field extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
           child: Row(
             children: [
               Expanded(
                 child: Text(
-                  label.toUpperCase(),
+                  label,
                   style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: AppColors.onSurfaceVariant,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.neutral700,
                   ),
                 ),
               ),
@@ -276,21 +231,17 @@ class _Field extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: controller,
           keyboardType: keyboardType,
           obscureText: obscure,
           decoration: InputDecoration(
             hintText: hint,
-            suffixIcon: Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.md),
-              child: Icon(
-                icon,
-                color: AppColors.onSurfaceVariant.withValues(alpha: 0.45),
-                size: 22,
-              ),
+            prefixIcon: Padding(
+              padding: const EdgeInsets.only(left: AppSpacing.md, right: AppSpacing.sm),
+              child: Icon(icon, color: AppColors.neutral500, size: 20),
             ),
+            prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
           ),
         ),
       ],
@@ -304,23 +255,21 @@ class _Divider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color line = AppColors.outlineVariant.withValues(alpha: 0.4);
     return Row(
       children: [
-        Expanded(child: Divider(color: line)),
+        const Expanded(child: Divider(color: AppColors.neutral200)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
           child: Text(
-            label.toUpperCase(),
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.6,
-              color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.neutral500,
             ),
           ),
         ),
-        Expanded(child: Divider(color: line)),
+        const Expanded(child: Divider(color: AppColors.neutral200)),
       ],
     );
   }
@@ -332,53 +281,29 @@ class _SignupPrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
-          "Don't have an account?",
-          style: TextStyle(
-            color: AppColors.onSurfaceVariant,
-            fontWeight: FontWeight.w500,
+        Text(
+          l10n.loginNoAccount,
+          style: const TextStyle(
+            color: AppColors.neutral500,
+            fontWeight: FontWeight.w400,
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
         GestureDetector(
           onTap: onTap,
-          child: const Text(
-            'Sign up',
-            style: TextStyle(
-              color: AppColors.secondary,
-              fontWeight: FontWeight.w800,
-              decoration: TextDecoration.underline,
-              decorationThickness: 2,
+          child: Text(
+            l10n.loginSignup,
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _BottomRibbon extends StatelessWidget {
-  const _BottomRibbon();
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Container(
-        height: 4,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.primary.withValues(alpha: 0.2),
-              AppColors.secondary.withValues(alpha: 0.2),
-              AppColors.primaryContainer.withValues(alpha: 0.2),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

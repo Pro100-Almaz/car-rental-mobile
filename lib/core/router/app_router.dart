@@ -6,7 +6,8 @@ import '../../features/bookings/renter_dashboard_screen.dart';
 import '../../features/car_details/car_details_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/onboarding/splash_screen.dart';
-import '../../features/owner/owner_dashboard_screen.dart';
+import '../../features/profile/profile_screen.dart';
+import '../../features/wallet/wallet_screen.dart';
 
 class AppRouter {
   AppRouter._();
@@ -27,10 +28,8 @@ class AppRouter {
         path: '/bookings',
         builder: (_, _) => const RenterDashboardScreen(),
       ),
-      GoRoute(
-        path: '/owner',
-        builder: (_, _) => const OwnerDashboardScreen(),
-      ),
+      GoRoute(path: '/wallet', builder: (_, _) => const WalletScreen()),
+      GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
     ],
   );
 }

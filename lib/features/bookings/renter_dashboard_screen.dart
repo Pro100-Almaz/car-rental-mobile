@@ -7,7 +7,39 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../core/widgets/glass_app_bar.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../l10n/app_localizations.dart';
 import '../home/data/sample_cars.dart';
+
+String _bookingStatusLabel(AppL10n l10n, String id) {
+  switch (id) {
+    case 'confirmed':
+      return l10n.bookingsStatusConfirmed;
+    default:
+      return id;
+  }
+}
+
+String _bookingCategoryLabel(AppL10n l10n, String id) {
+  switch (id) {
+    case 'comfort':
+      return l10n.categoryComfort;
+    case 'business':
+      return l10n.categoryBusiness;
+    default:
+      return id;
+  }
+}
+
+String _bookingDateRangeLabel(AppL10n l10n, String id) {
+  switch (id) {
+    case 'range1':
+      return l10n.bookingsDateRange1;
+    case 'range2':
+      return l10n.bookingsDateRange2;
+    default:
+      return id;
+  }
+}
 
 class RenterDashboardScreen extends StatefulWidget {
   const RenterDashboardScreen({super.key});
@@ -20,117 +52,89 @@ class _RenterDashboardScreenState extends State<RenterDashboardScreen> {
   int _tab = 0;
   AppNavDestination _nav = AppNavDestination.bookings;
 
-  static const List<String> _tabs = ['Upcoming', 'Active', 'Completed', 'Cancelled'];
+  void _onNav(AppNavDestination d) {
+    if (d == _nav) return;
+    setState(() => _nav = d);
+    switch (d) {
+      case AppNavDestination.home:
+        context.go('/home');
+      case AppNavDestination.wallet:
+        context.go('/wallet');
+      case AppNavDestination.profile:
+        context.go('/profile');
+      default:
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
+    final List<String> tabs = [
+      l10n.bookingsTabUpcoming,
+      l10n.bookingsTabActive,
+      l10n.bookingsTabCompleted,
+      l10n.bookingsTabCancelled,
+    ];
     return Scaffold(
-      backgroundColor: AppColors.surface,
-      extendBody: true,
-      extendBodyBehindAppBar: true,
       appBar: const GlassAppBar(),
-      bottomNavigationBar: AppBottomNav(
-        current: _nav,
-        onSelect: (d) {
-          setState(() => _nav = d);
-          switch (d) {
-            case AppNavDestination.home:
-              context.go('/home');
-              break;
-            case AppNavDestination.profile:
-              context.push('/owner');
-              break;
-            default:
-              break;
-          }
-        },
-      ),
+      bottomNavigationBar: AppBottomNav(current: _nav, onSelect: _onNav),
       body: ListView(
-        padding: EdgeInsets.fromLTRB(
-          0,
-          MediaQuery.paddingOf(context).top + 84,
-          0,
-          MediaQuery.paddingOf(context).bottom + 120,
+        padding: EdgeInsets.only(
+          top: AppSpacing.lg,
+          bottom: MediaQuery.paddingOf(context).bottom + AppSpacing.xl,
         ),
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-            child: _Header(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: Text(
+              l10n.bookingsGreeting,
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                color: AppColors.neutral900,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: Text(
+              l10n.bookingsSubtitle,
+              style: const TextStyle(fontSize: 15, color: AppColors.neutral500),
+            ),
           ),
           const SizedBox(height: AppSpacing.xl),
           SizedBox(
             height: 40,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-              itemCount: _tabs.length,
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              itemCount: tabs.length,
               separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
               itemBuilder: (_, i) => _TabChip(
-                label: _tabs[i],
+                label: tabs[i],
                 selected: i == _tab,
                 onTap: () => setState(() => _tab = i),
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.xxl),
+          const SizedBox(height: AppSpacing.xl),
           ...kUpcomingBookings.map(
             (b) => Padding(
               padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                0,
-                AppSpacing.xl,
-                AppSpacing.lg,
+                AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md,
               ),
               child: _BookingCard(booking: b),
             ),
           ),
-          const SizedBox(height: AppSpacing.xl),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+          const SizedBox(height: AppSpacing.lg),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: _NextRideCta(),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'MY BOOKINGS',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.2,
-            color: AppColors.secondary,
-          ),
-        ),
-        SizedBox(height: 6),
-        Text(
-          'Hello, Sophia',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.6,
-            color: AppColors.onSurface,
-          ),
-        ),
-        SizedBox(height: 4),
-        Text(
-          'Track upcoming trips and manage past rides.',
-          style: TextStyle(
-            fontSize: 14,
-            color: AppColors.onSurfaceVariant,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -149,22 +153,25 @@ class _TabChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.primary : AppColors.surfaceContainerLowest,
+      color: selected ? AppColors.primary : AppColors.white,
       borderRadius: BorderRadius.circular(AppRadius.pill),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        child: Padding(
+        child: Container(
           padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg,
-            vertical: AppSpacing.sm,
+            horizontal: AppSpacing.lg, vertical: AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+            border: selected ? null : Border.all(color: AppColors.neutral300),
           ),
           child: Text(
             label,
             style: TextStyle(
-              color: selected ? AppColors.onPrimary : AppColors.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
+              color: selected ? AppColors.white : AppColors.neutral700,
+              fontWeight: FontWeight.w500,
+              fontSize: 14,
             ),
           ),
         ),
@@ -180,9 +187,10 @@ class _BookingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
     return Material(
-      color: AppColors.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(AppRadius.lg),
+      color: AppColors.white,
+      borderRadius: BorderRadius.circular(AppRadius.md),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -195,23 +203,32 @@ class _BookingCard extends StatelessWidget {
                 CachedNetworkImage(
                   imageUrl: booking.imageUrl,
                   fit: BoxFit.cover,
-                  placeholder: (_, _) => Container(
-                    color: AppColors.surfaceContainerHigh,
-                  ),
+                  placeholder: (_, _) => Container(color: AppColors.neutral200),
                 ),
                 Positioned(
-                  top: AppSpacing.md,
-                  left: AppSpacing.md,
-                  child: _StatusPill(
-                    label: booking.status,
-                    color: booking.statusColor,
+                  top: AppSpacing.sm,
+                  left: AppSpacing.sm,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: booking.statusColor,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                    child: Text(
+                      _bookingStatusLabel(l10n, booking.status),
+                      style: const TextStyle(
+                        color: AppColors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl - 4),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -222,53 +239,44 @@ class _BookingCard extends StatelessWidget {
                         booking.carName,
                         style: const TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.onSurface,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.neutral900,
                         ),
                       ),
                     ),
                     Text(
-                      '\$${booking.total.toStringAsFixed(0)}',
+                      '₸ ${_formatPrice(booking.total)}',
                       style: const TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: AppColors.primary,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.sm),
                 Row(
                   children: [
-                    const Icon(
-                      Icons.calendar_today_rounded,
-                      size: 14,
-                      color: AppColors.onSurfaceVariant,
-                    ),
+                    const Icon(Icons.calendar_today_outlined,
+                        size: 14, color: AppColors.neutral500),
                     const SizedBox(width: 6),
                     Text(
-                      booking.dateRange,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.onSurfaceVariant,
-                      ),
+                      _bookingDateRangeLabel(l10n, booking.dateRange),
+                      style: const TextStyle(fontSize: 13, color: AppColors.neutral500),
                     ),
-                    const SizedBox(width: AppSpacing.lg),
+                    const SizedBox(width: AppSpacing.md),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerLow,
+                        color: AppColors.neutral100,
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                       ),
                       child: Text(
-                        booking.tag,
+                        _bookingCategoryLabel(l10n, booking.category),
                         style: const TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.neutral700,
                         ),
                       ),
                     ),
@@ -278,16 +286,31 @@ class _BookingCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: _OutlinedAction(
-                        label: 'Manage',
-                        onTap: () {},
+                      child: OutlinedButton(
+                        onPressed: () {},
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.neutral700,
+                          side: const BorderSide(color: AppColors.neutral300),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                          ),
+                        ),
+                        child: Text(l10n.bookingsManage),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.md),
                     Expanded(
-                      child: _FilledAction(
-                        label: 'Open trip',
-                        onTap: () {},
+                      child: ElevatedButton(
+                        onPressed: () {},
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: AppColors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                          ),
+                        ),
+                        child: Text(l10n.bookingsOpenTrip),
                       ),
                     ),
                   ],
@@ -301,142 +324,40 @@ class _BookingCard extends StatelessWidget {
   }
 }
 
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-      ),
-      child: Text(
-        label.toUpperCase(),
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.8,
-        ),
-      ),
-    );
-  }
-}
-
-class _OutlinedAction extends StatelessWidget {
-  const _OutlinedAction({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        side: BorderSide(
-          color: AppColors.outlineVariant.withValues(alpha: 0.4),
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(vertical: 12),
-          child: Center(
-            child: Text(
-              'Manage',
-              style: TextStyle(
-                color: AppColors.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FilledAction extends StatelessWidget {
-  const _FilledAction({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.primary,
-      borderRadius: BorderRadius.circular(AppRadius.pill),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Center(
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.onPrimary,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _NextRideCta extends StatelessWidget {
-  const _NextRideCta();
-
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.primaryFixed.withValues(alpha: 0.4),
-            AppColors.primaryFixedDim.withValues(alpha: 0.25),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        color: AppColors.primaryLight,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Need another ride?',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: AppColors.onSurface,
-              letterSpacing: -0.3,
+          Text(
+            l10n.bookingsNextRideTitle,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.neutral900,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Browse the marketplace and lock in your next adventure in under a minute.',
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.45,
-              color: AppColors.onSurfaceVariant,
+          Text(
+            l10n.bookingsNextRideSubtitle,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.4,
+              color: AppColors.neutral700,
             ),
           ),
-          const SizedBox(height: AppSpacing.xl),
+          const SizedBox(height: AppSpacing.lg),
           PrimaryButton(
-            label: 'Find a car',
+            label: l10n.bookingsFindCar,
             icon: Icons.search_rounded,
             onPressed: () => context.go('/home'),
           ),
@@ -444,4 +365,14 @@ class _NextRideCta extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatPrice(int value) {
+  final str = value.toString();
+  final buf = StringBuffer();
+  for (int i = 0; i < str.length; i++) {
+    if (i > 0 && (str.length - i) % 3 == 0) buf.write(',');
+    buf.write(str[i]);
+  }
+  return buf.toString();
 }

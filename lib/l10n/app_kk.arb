@@ -1,0 +1,154 @@
+{
+  "@@locale": "kk",
+  "appName": "AutoFleet",
+  "brandTagline": "Каршеринг — қарапайым және ыңғайлы.",
+
+  "commonLogin": "Кіру",
+  "commonContinue": "Жалғастыру",
+  "commonBack": "Артқа",
+  "commonOrContinueWith": "Немесе арқылы жалғастыру",
+  "commonContinueWithGoogle": "Google арқылы жалғастыру",
+  "commonEmail": "Электрондық пошта",
+  "commonPassword": "Құпия сөз",
+  "commonPhone": "Телефон нөмірі",
+  "commonFullName": "Аты-жөні",
+  "commonDob": "Туған күні",
+  "commonDobHint": "КК / АА / ЖЖЖЖ",
+  "commonEmailHint": "hello@example.com",
+  "commonNameHint": "Темірлан Жұмабаев",
+  "commonPhoneHint": "+7 (700) 000-00-00",
+
+  "splashFindCar": "Көлік табу",
+  "splashAlreadyHaveAccount": "Аккаунтыңыз бар ма? ",
+
+  "welcomeSlide1Title": "Қажетті көлікті табыңыз",
+  "welcomeSlide1Subtitle": "Жаныңызда жүздеген тексерілген көлік қолжетімді.",
+  "welcomeSlide2Title": "Секундтарда брондаңыз",
+  "welcomeSlide2Subtitle": "Күндерді таңдаңыз, ашық бағаларды көріңіз, лезде растаңыз.",
+  "welcomeSlide3Title": "Жүріңіз және қайтарыңыз",
+  "welcomeSlide3Subtitle": "Цифрлы тіркелу, тәулік бойы қолдау, оңай қайтару.",
+
+  "loginSubtitle": "AutoFleet-ке қайта қош келдіңіз.",
+  "loginForgot": "Ұмыттыңыз ба?",
+  "loginDivider": "Немесе арқылы жалғастыру",
+  "loginButton": "Кіру",
+  "loginNoAccount": "Аккаунтыңыз жоқ па?",
+  "loginSignup": "Тіркелу",
+
+  "registerStepPhoneTitle": "Телефон нөмірін енгізіңіз",
+  "registerStepPhoneSubtitle": "SMS арқылы растау кодын жібереміз.",
+  "registerStepDetailsTitle": "Аккаунт жасау",
+  "registerStepDetailsSubtitle": "Бастау үшін бірнеше мәлімет қажет.",
+  "registerAgreePrefix": "Мен ",
+  "registerAgreeTerms": "Қолдану шарттарымен",
+  "registerAgreeAnd": " және ",
+  "registerAgreePrivacy": "Құпиялылық саясатымен келісемін",
+  "registerSubmit": "Аккаунт жасау",
+
+  "homeHeadline": "Жақын жердегі\nкөлікті табыңыз",
+  "homeSearchWhere": "Қайда?",
+  "homeSearchWhen": "Қашан?",
+  "homeNearby": "Жақында",
+  "homeTopRated": "Ең жоғары бағаланған",
+  "homeViewAll": "Барлығы",
+
+  "categoryAll": "Барлығы",
+  "categoryEconomy": "Эконом",
+  "categoryComfort": "Комфорт",
+  "categoryBusiness": "Бизнес",
+  "categorySuv": "Жолсерік",
+
+  "carMetersAway": "{meters} м қашықтықта",
+  "@carMetersAway": {
+    "placeholders": { "meters": { "type": "String" } }
+  },
+  "carReviewsPlus": "{rating} ({count}+ пікір)",
+  "@carReviewsPlus": {
+    "placeholders": {
+      "rating": { "type": "String" },
+      "count": { "type": "int" }
+    }
+  },
+  "carReviewsParen": "({count} пікір)",
+  "@carReviewsParen": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "carPerHour": "/сағ",
+  "carPerDay": "/тәулік",
+  "carSeats": "{count} орын",
+  "@carSeats": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "detailsAbout": "КӨЛІК ТУРАЛЫ",
+  "detailsAvailability": "Қолжетімділік",
+  "detailsPaymentSummary": "ТӨЛЕМ ЖИЫНТЫҒЫ",
+  "detailsDailyLine": "₸{price}/тәулік × {days} күн",
+  "@detailsDailyLine": {
+    "placeholders": {
+      "price": { "type": "String" },
+      "days": { "type": "int" }
+    }
+  },
+  "detailsInsurance": "Сақтандыру",
+  "detailsServiceFee": "Сервистік алым",
+  "detailsTotal": "Барлығы",
+  "detailsBookNow": "Брондау",
+  "detailsBookedToast": "{car} брондалды!",
+  "@detailsBookedToast": {
+    "placeholders": { "car": { "type": "String" } }
+  },
+  "detailsCalendarMonth": "Қыркүйек 2024",
+  "dayMon": "Дс",
+  "dayTue": "Сс",
+  "dayWed": "Ср",
+  "dayThu": "Бс",
+  "dayFri": "Жм",
+  "daySat": "Сб",
+  "daySun": "Жс",
+
+  "bookingsGreeting": "Менің брондарым",
+  "bookingsSubtitle": "Алдағы және өткен сапарларды қадағалаңыз.",
+  "bookingsTabUpcoming": "Алдағы",
+  "bookingsTabActive": "Белсенді",
+  "bookingsTabCompleted": "Аяқталған",
+  "bookingsTabCancelled": "Болдырылмаған",
+  "bookingsManage": "Басқару",
+  "bookingsOpenTrip": "Сапарды ашу",
+  "bookingsNextRideTitle": "Тағы бір сапар керек пе?",
+  "bookingsNextRideSubtitle": "Қолжетімді көлікті таңдап, бір минуттан аз уақытта брондаңыз.",
+  "bookingsFindCar": "Көлік табу",
+  "bookingsStatusConfirmed": "Расталды",
+  "bookingsDateRange1": "12 – 15 қаз",
+  "bookingsDateRange2": "02 – 05 қар",
+
+  "walletTitle": "Әмиян",
+  "walletBalance": "Ағымдағы баланс",
+  "walletTopUp": "Толтыру",
+  "walletHistory": "Тарих",
+  "walletPaymentMethods": "Төлем тәсілдері",
+  "walletBankCard": "Банк картасы",
+  "walletAddMethod": "Төлем тәсілін қосу",
+  "walletRecentTransactions": "Соңғы транзакциялар",
+  "walletDepositRefund": "Депозит қайтаруы",
+
+  "profileVerified": "Расталған",
+  "profileAccountSection": "Аккаунт",
+  "profilePersonalInfo": "Жеке мәліметтер",
+  "profileDocuments": "Құжаттар",
+  "profileTrustScore": "Сенім деңгейі",
+  "profileSettingsSection": "Баптаулар",
+  "profileNotifications": "Хабарландырулар",
+  "profileLanguage": "Тіл",
+  "profileTheme": "Сыртқы көрініс",
+  "profileSupportSection": "Қолдау",
+  "profileHelp": "Көмек және FAQ",
+  "profileTerms": "Шарттар және құпиялылық",
+  "profileLogout": "Шығу",
+
+  "navHome": "Басты",
+  "navBookings": "Брондар",
+  "navActive": "Белсенді",
+  "navWallet": "Әмиян",
+  "navProfile": "Профиль"
+}

@@ -4,8 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/primary_button.dart';
-
-enum RegisterRole { renter, owner, fleet }
+import '../../l10n/app_localizations.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -16,23 +15,18 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   int _step = 0;
-  RegisterRole _role = RegisterRole.renter;
 
   final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  final _dobCtrl = TextEditingController();
   bool _obscure = true;
   bool _agreed = false;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _emailCtrl.dispose();
     _phoneCtrl.dispose();
     _passwordCtrl.dispose();
-    _dobCtrl.dispose();
     super.dispose();
   }
 
@@ -41,7 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => _step = 1);
       return;
     }
-    context.go(_role == RegisterRole.renter ? '/home' : '/owner');
+    context.go('/home');
   }
 
   bool get _canContinue {
@@ -59,8 +53,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
     return Scaffold(
-      backgroundColor: AppColors.surface,
       body: SafeArea(
         child: Column(
           children: [
@@ -69,20 +63,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: AppSpacing.xl),
             Expanded(
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
+                duration: const Duration(milliseconds: 200),
                 child: _step == 0
-                    ? _RoleStep(
-                        key: const ValueKey('role'),
-                        selected: _role,
-                        onSelect: (r) => setState(() => _role = r),
+                    ? _PhoneStep(
+                        key: const ValueKey('phone'),
+                        phoneCtrl: _phoneCtrl,
                       )
                     : _DetailsStep(
                         key: const ValueKey('details'),
                         nameCtrl: _nameCtrl,
-                        emailCtrl: _emailCtrl,
-                        phoneCtrl: _phoneCtrl,
                         passwordCtrl: _passwordCtrl,
-                        dobCtrl: _dobCtrl,
                         obscure: _obscure,
                         agreed: _agreed,
                         onToggleObscure: () => setState(() => _obscure = !_obscure),
@@ -96,16 +86,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xxl,
+                AppSpacing.xl,
                 AppSpacing.lg,
-                AppSpacing.xxl,
+                AppSpacing.xl,
                 AppSpacing.xl,
               ),
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 180),
-                opacity: _canContinue ? 1 : 0.55,
+                opacity: _canContinue ? 1 : 0.5,
                 child: PrimaryButton(
-                  label: _step == 0 ? 'Continue' : 'Create account',
+                  label: _step == 0
+                      ? l10n.commonContinue
+                      : l10n.registerSubmit,
                   icon: _step == 0
                       ? Icons.arrow_forward_rounded
                       : Icons.check_rounded,
@@ -128,28 +120,21 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.md,
-        AppSpacing.md,
-        AppSpacing.sm,
+        AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, AppSpacing.sm,
       ),
       child: Row(
         children: [
           IconButton(
             onPressed: onBack,
-            icon: const Icon(
-              Icons.arrow_back_rounded,
-              color: AppColors.primaryContainer,
-            ),
+            icon: const Icon(Icons.arrow_back_rounded, color: AppColors.neutral900),
           ),
           const Spacer(),
-          const Text(
-            'CarShare',
-            style: TextStyle(
-              color: AppColors.primaryContainer,
-              fontWeight: FontWeight.w800,
-              fontSize: 20,
-              letterSpacing: -0.5,
+          Text(
+            AppL10n.of(context).appName,
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
             ),
           ),
           const Spacer(),
@@ -166,210 +151,63 @@ class _ProgressDots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color colorAt(int i) {
-      if (i < step) return AppColors.primary.withValues(alpha: 0.4);
-      if (i == step) return AppColors.primary;
-      return AppColors.surfaceContainerHighest;
-    }
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(3, (i) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: i == step ? 40 : 16,
-            height: 6,
-            decoration: BoxDecoration(
-              color: colorAt(i),
-              borderRadius: BorderRadius.circular(AppRadius.pill),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+      child: Row(
+        children: List.generate(2, (i) {
+          return Expanded(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              height: 4,
+              decoration: BoxDecoration(
+                color: i <= step ? AppColors.primary : AppColors.neutral200,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+              ),
             ),
-          ),
-        );
-      }),
+          );
+        }),
+      ),
     );
   }
 }
 
-class _RoleStep extends StatelessWidget {
-  const _RoleStep({
-    super.key,
-    required this.selected,
-    required this.onSelect,
-  });
+class _PhoneStep extends StatelessWidget {
+  const _PhoneStep({super.key, required this.phoneCtrl});
 
-  final RegisterRole selected;
-  final ValueChanged<RegisterRole> onSelect;
+  final TextEditingController phoneCtrl;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'How will you use CarShare?',
-            style: TextStyle(
+          Text(
+            l10n.registerStepPhoneTitle,
+            style: const TextStyle(
               fontSize: 28,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.6,
-              color: AppColors.onSurface,
-              height: 1.15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.neutral900,
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
-          const Text(
-            'You can switch roles later in your profile.',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            l10n.registerStepPhoneSubtitle,
+            style: const TextStyle(
+              fontSize: 15,
+              color: AppColors.neutral500,
             ),
           ),
           const SizedBox(height: AppSpacing.xxl),
-          _RoleCard(
-            icon: Icons.vpn_key_rounded,
-            title: 'Rent a car',
-            subtitle: 'Search and book from thousands of cars near you.',
-            selected: selected == RegisterRole.renter,
-            onTap: () => onSelect(RegisterRole.renter),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _RoleCard(
-            icon: Icons.directions_car_rounded,
-            title: 'List my car',
-            subtitle: "Earn from your car when you're not driving it.",
-            selected: selected == RegisterRole.owner,
-            onTap: () => onSelect(RegisterRole.owner),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _RoleCard(
-            icon: Icons.apartment_rounded,
-            title: 'Rental company',
-            subtitle: 'Manage your fleet and reach more customers.',
-            selected: selected == RegisterRole.fleet,
-            onTap: () => onSelect(RegisterRole.fleet),
+          _Field(
+            label: l10n.commonPhone,
+            controller: phoneCtrl,
+            hint: l10n.commonPhoneHint,
+            keyboardType: TextInputType.phone,
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _RoleCard extends StatelessWidget {
-  const _RoleCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-      decoration: BoxDecoration(
-        color: selected
-            ? AppColors.surfaceContainerLowest
-            : AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(
-          color: selected
-              ? AppColors.primary
-              : AppColors.outlineVariant.withValues(alpha: 0.0),
-          width: 2,
-        ),
-        boxShadow: selected ? AppColors.cloudShadow : null,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? AppColors.primary
-                        : AppColors.surfaceContainerHighest,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    icon,
-                    color: selected ? AppColors.onPrimary : AppColors.primary,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.lg),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.onSurfaceVariant,
-                          height: 1.45,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? AppColors.primary
-                        : Colors.transparent,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: selected
-                          ? AppColors.primary
-                          : AppColors.outlineVariant.withValues(alpha: 0.5),
-                      width: 2,
-                    ),
-                  ),
-                  child: selected
-                      ? const Icon(
-                          Icons.check_rounded,
-                          color: AppColors.onPrimary,
-                          size: 16,
-                        )
-                      : null,
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -379,10 +217,7 @@ class _DetailsStep extends StatelessWidget {
   const _DetailsStep({
     super.key,
     required this.nameCtrl,
-    required this.emailCtrl,
-    required this.phoneCtrl,
     required this.passwordCtrl,
-    required this.dobCtrl,
     required this.obscure,
     required this.agreed,
     required this.onToggleObscure,
@@ -391,10 +226,7 @@ class _DetailsStep extends StatelessWidget {
   });
 
   final TextEditingController nameCtrl;
-  final TextEditingController emailCtrl;
-  final TextEditingController phoneCtrl;
   final TextEditingController passwordCtrl;
-  final TextEditingController dobCtrl;
   final bool obscure;
   final bool agreed;
   final VoidCallback onToggleObscure;
@@ -403,53 +235,37 @@ class _DetailsStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Create your account',
-            style: TextStyle(
+          Text(
+            l10n.registerStepDetailsTitle,
+            style: const TextStyle(
               fontSize: 28,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.6,
-              color: AppColors.onSurface,
-              height: 1.15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.neutral900,
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
-          const Text(
-            'Join our community and start your journey today.',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            l10n.registerStepDetailsSubtitle,
+            style: const TextStyle(
+              fontSize: 15,
+              color: AppColors.neutral500,
             ),
           ),
           const SizedBox(height: AppSpacing.xxl),
           _Field(
-            label: 'Full name',
+            label: l10n.commonFullName,
             controller: nameCtrl,
-            hint: 'Temirlan Doe',
+            hint: l10n.commonNameHint,
           ),
           const SizedBox(height: AppSpacing.lg),
           _Field(
-            label: 'Email address',
-            controller: emailCtrl,
-            hint: 'john@example.com',
-            keyboardType: TextInputType.emailAddress,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          _Field(
-            label: 'Phone number',
-            controller: phoneCtrl,
-            hint: '+1 (555) 000-0000',
-            keyboardType: TextInputType.phone,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          _Field(
-            label: 'Password',
+            label: l10n.commonPassword,
             controller: passwordCtrl,
             hint: '••••••••',
             obscure: obscure,
@@ -457,76 +273,53 @@ class _DetailsStep extends StatelessWidget {
               onPressed: onToggleObscure,
               icon: Icon(
                 obscure ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-                color: AppColors.onSurfaceVariant.withValues(alpha: 0.6),
+                color: AppColors.neutral500,
                 size: 20,
               ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          _Field(
-            label: 'Date of birth',
-            controller: dobCtrl,
-            hint: 'MM / DD / YYYY',
-            readOnly: true,
-            onTap: () async {
-              final now = DateTime.now();
-              final d = await showDatePicker(
-                context: context,
-                firstDate: DateTime(now.year - 100),
-                lastDate: now,
-                initialDate: DateTime(now.year - 25),
-              );
-              if (d != null) {
-                dobCtrl.text =
-                    '${d.month.toString().padLeft(2, '0')} / ${d.day.toString().padLeft(2, '0')} / ${d.year}';
-              }
-            },
           ),
           const SizedBox(height: AppSpacing.xl),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Transform.translate(
-                offset: const Offset(0, -2),
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: Checkbox(
-                    value: agreed,
-                    onChanged: onToggleAgreed,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.sm / 2),
-                    ),
-                    activeColor: AppColors.primary,
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: Checkbox(
+                  value: agreed,
+                  onChanged: onToggleAgreed,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
                   ),
+                  activeColor: AppColors.primary,
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: GestureDetector(
                   onTap: () => onToggleAgreed(!agreed),
-                  child: const Text.rich(
+                  child: Text.rich(
                     TextSpan(
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
-                        color: AppColors.onSurfaceVariant,
+                        color: AppColors.neutral700,
                         height: 1.5,
                       ),
                       children: [
-                        TextSpan(text: 'I agree to the '),
+                        TextSpan(text: l10n.registerAgreePrefix),
                         TextSpan(
-                          text: 'Terms of Service',
-                          style: TextStyle(
+                          text: l10n.registerAgreeTerms,
+                          style: const TextStyle(
                             color: AppColors.primary,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        TextSpan(text: ' and '),
+                        TextSpan(text: l10n.registerAgreeAnd),
                         TextSpan(
-                          text: 'Privacy Policy',
-                          style: TextStyle(
+                          text: l10n.registerAgreePrivacy,
+                          style: const TextStyle(
                             color: AppColors.primary,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -539,33 +332,24 @@ class _DetailsStep extends StatelessWidget {
           const SizedBox(height: AppSpacing.xxl),
           Row(
             children: [
-              Expanded(
-                child: Divider(
-                  color: AppColors.outlineVariant.withValues(alpha: 0.4),
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              const Expanded(child: Divider(color: AppColors.neutral200)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 child: Text(
-                  'OR CONTINUE WITH',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.6,
-                    color: AppColors.outline,
+                  l10n.commonOrContinueWith,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.neutral500,
                   ),
                 ),
               ),
-              Expanded(
-                child: Divider(
-                  color: AppColors.outlineVariant.withValues(alpha: 0.4),
-                ),
-              ),
+              const Expanded(child: Divider(color: AppColors.neutral200)),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
           SecondaryButton(
-            label: 'Continue with Google',
+            label: l10n.commonContinueWithGoogle,
             icon: Container(
               width: 22,
               height: 22,
@@ -597,26 +381,25 @@ class _DetailsStep extends StatelessWidget {
           const SizedBox(height: AppSpacing.xl),
           GestureDetector(
             onTap: onLogin,
-            child: const Text.rich(
+            behavior: HitTestBehavior.opaque,
+            child: Text.rich(
               TextSpan(
-                text: 'Already have an account? ',
-                style: TextStyle(
-                  color: AppColors.onSurfaceVariant,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 13,
+                text: l10n.splashAlreadyHaveAccount,
+                style: const TextStyle(
+                  color: AppColors.neutral500,
+                  fontSize: 14,
                 ),
                 children: [
                   TextSpan(
-                    text: 'Log in',
-                    style: TextStyle(
+                    text: l10n.commonLogin,
+                    style: const TextStyle(
                       color: AppColors.primary,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
             ),
-            behavior: HitTestBehavior.opaque,
           ),
           const SizedBox(height: AppSpacing.xl),
         ],
@@ -633,8 +416,6 @@ class _Field extends StatelessWidget {
     this.obscure = false,
     this.keyboardType,
     this.suffix,
-    this.readOnly = false,
-    this.onTap,
   });
 
   final String label;
@@ -643,8 +424,6 @@ class _Field extends StatelessWidget {
   final bool obscure;
   final TextInputType? keyboardType;
   final Widget? suffix;
-  final bool readOnly;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -654,12 +433,11 @@ class _Field extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 6),
           child: Text(
-            label.toUpperCase(),
+            label,
             style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-              color: AppColors.onSurfaceVariant,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.neutral700,
             ),
           ),
         ),
@@ -667,8 +445,6 @@ class _Field extends StatelessWidget {
           controller: controller,
           obscureText: obscure,
           keyboardType: keyboardType,
-          readOnly: readOnly,
-          onTap: onTap,
           decoration: InputDecoration(
             hintText: hint,
             suffixIcon: suffix,

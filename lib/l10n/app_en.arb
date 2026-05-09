@@ -1,0 +1,154 @@
+{
+  "@@locale": "en",
+  "appName": "AutoFleet",
+  "brandTagline": "Car sharing made simple.",
+
+  "commonLogin": "Log in",
+  "commonContinue": "Continue",
+  "commonBack": "Back",
+  "commonOrContinueWith": "Or continue with",
+  "commonContinueWithGoogle": "Continue with Google",
+  "commonEmail": "Email address",
+  "commonPassword": "Password",
+  "commonPhone": "Phone number",
+  "commonFullName": "Full name",
+  "commonDob": "Date of birth",
+  "commonDobHint": "DD / MM / YYYY",
+  "commonEmailHint": "hello@example.com",
+  "commonNameHint": "Temirlan Zhumbayev",
+  "commonPhoneHint": "+7 (700) 000-00-00",
+
+  "splashFindCar": "Find a car",
+  "splashAlreadyHaveAccount": "Already have an account? ",
+
+  "welcomeSlide1Title": "Find your perfect ride",
+  "welcomeSlide1Subtitle": "Hundreds of verified cars available near you right now.",
+  "welcomeSlide2Title": "Book in seconds",
+  "welcomeSlide2Subtitle": "Choose dates, see transparent pricing, and confirm instantly.",
+  "welcomeSlide3Title": "Drive & return",
+  "welcomeSlide3Subtitle": "Digital check-in, 24/7 support, and hassle-free returns.",
+
+  "loginSubtitle": "Welcome back to AutoFleet.",
+  "loginForgot": "Forgot?",
+  "loginDivider": "Or continue with",
+  "loginButton": "Log in",
+  "loginNoAccount": "Don't have an account?",
+  "loginSignup": "Sign up",
+
+  "registerStepPhoneTitle": "Enter your phone number",
+  "registerStepPhoneSubtitle": "We'll send you a verification code via SMS.",
+  "registerStepDetailsTitle": "Create your account",
+  "registerStepDetailsSubtitle": "Just a few details to get you started.",
+  "registerAgreePrefix": "I agree to the ",
+  "registerAgreeTerms": "Terms of Service",
+  "registerAgreeAnd": " and ",
+  "registerAgreePrivacy": "Privacy Policy",
+  "registerSubmit": "Create account",
+
+  "homeHeadline": "Find a car\nnear you",
+  "homeSearchWhere": "Where to?",
+  "homeSearchWhen": "When?",
+  "homeNearby": "Nearby",
+  "homeTopRated": "Top rated",
+  "homeViewAll": "View all",
+
+  "categoryAll": "All",
+  "categoryEconomy": "Economy",
+  "categoryComfort": "Comfort",
+  "categoryBusiness": "Business",
+  "categorySuv": "SUV",
+
+  "carMetersAway": "{meters}m away",
+  "@carMetersAway": {
+    "placeholders": { "meters": { "type": "String" } }
+  },
+  "carReviewsPlus": "{rating} ({count}+ reviews)",
+  "@carReviewsPlus": {
+    "placeholders": {
+      "rating": { "type": "String" },
+      "count": { "type": "int" }
+    }
+  },
+  "carReviewsParen": "({count} reviews)",
+  "@carReviewsParen": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "carPerHour": "/hr",
+  "carPerDay": "/day",
+  "carSeats": "{count} seats",
+  "@carSeats": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "detailsAbout": "ABOUT THIS VEHICLE",
+  "detailsAvailability": "Availability",
+  "detailsPaymentSummary": "PAYMENT SUMMARY",
+  "detailsDailyLine": "₸{price}/day × {days} days",
+  "@detailsDailyLine": {
+    "placeholders": {
+      "price": { "type": "String" },
+      "days": { "type": "int" }
+    }
+  },
+  "detailsInsurance": "Insurance",
+  "detailsServiceFee": "Service fee",
+  "detailsTotal": "Total",
+  "detailsBookNow": "Book now",
+  "detailsBookedToast": "Booked {car}!",
+  "@detailsBookedToast": {
+    "placeholders": { "car": { "type": "String" } }
+  },
+  "detailsCalendarMonth": "September 2024",
+  "dayMon": "Mo",
+  "dayTue": "Tu",
+  "dayWed": "We",
+  "dayThu": "Th",
+  "dayFri": "Fr",
+  "daySat": "Sa",
+  "daySun": "Su",
+
+  "bookingsGreeting": "My bookings",
+  "bookingsSubtitle": "Track upcoming trips and manage past rides.",
+  "bookingsTabUpcoming": "Upcoming",
+  "bookingsTabActive": "Active",
+  "bookingsTabCompleted": "Completed",
+  "bookingsTabCancelled": "Cancelled",
+  "bookingsManage": "Manage",
+  "bookingsOpenTrip": "Open trip",
+  "bookingsNextRideTitle": "Need another ride?",
+  "bookingsNextRideSubtitle": "Browse available cars and book your next trip in under a minute.",
+  "bookingsFindCar": "Find a car",
+  "bookingsStatusConfirmed": "Confirmed",
+  "bookingsDateRange1": "Oct 12 – 15",
+  "bookingsDateRange2": "Nov 02 – 05",
+
+  "walletTitle": "Wallet",
+  "walletBalance": "Current balance",
+  "walletTopUp": "Top up",
+  "walletHistory": "History",
+  "walletPaymentMethods": "Payment methods",
+  "walletBankCard": "Bank card",
+  "walletAddMethod": "Add payment method",
+  "walletRecentTransactions": "Recent transactions",
+  "walletDepositRefund": "Deposit refund",
+
+  "profileVerified": "Verified",
+  "profileAccountSection": "Account",
+  "profilePersonalInfo": "Personal info",
+  "profileDocuments": "Documents",
+  "profileTrustScore": "Trust score",
+  "profileSettingsSection": "Settings",
+  "profileNotifications": "Notifications",
+  "profileLanguage": "Language",
+  "profileTheme": "Appearance",
+  "profileSupportSection": "Support",
+  "profileHelp": "Help & FAQ",
+  "profileTerms": "Terms & Privacy",
+  "profileLogout": "Log out",
+
+  "navHome": "Home",
+  "navBookings": "Bookings",
+  "navActive": "Active",
+  "navWallet": "Wallet",
+  "navProfile": "Profile"
+}
