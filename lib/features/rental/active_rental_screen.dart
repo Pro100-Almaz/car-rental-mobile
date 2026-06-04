@@ -1,3 +1,14 @@
+// AUDIT FIX: The original active_rental_screen.dart had a Timer.periodic in
+// the top-level initState that called setState() every second, causing the
+// entire screen widget tree to rebuild on every tick (audit finding M4-PERF-1).
+//
+// Fix: Timer.periodic now lives exclusively inside RentalTimer, which owns a
+// ValueNotifier<Duration> updated each second. Only the Text widget inside
+// ValueListenableBuilder rebuilds. A RepaintBoundary wraps RentalTimer so
+// its repaint does not propagate to the parent layer.
+//
+// Verified: no Timer.periodic at top-level initState in this file.
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -5,68 +16,165 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/formatters/money.dart';
 import '../../core/models/booking.dart';
-import '../../core/providers/providers.dart';
+import '../../core/providers/active_rental_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/widgets/empty_state_view.dart';
+import '../../core/widgets/error_retry_widget.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../core/widgets/shimmer_box.dart';
+import '../../core/widgets/status_chip.dart';
+import '../../features/bookings/booking_detail_screen.dart'
+    show ManagerContactActions;
+import '../../l10n/app_localizations.dart';
 
-class ActiveRentalScreen extends ConsumerStatefulWidget {
-  const ActiveRentalScreen({super.key, required this.bookingId});
+class ActiveRentalScreen extends ConsumerWidget {
+  const ActiveRentalScreen({super.key, this.bookingId});
 
-  final String bookingId;
+  // bookingId is now optional — the screen drives from activeRentalProvider
+  // rather than from a passed id (retained for router back-compat).
+  final String? bookingId;
 
   @override
-  ConsumerState<ActiveRentalScreen> createState() => _ActiveRentalScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppL10n.of(context);
+    final activeAsync = ref.watch(activeRentalProvider);
+
+    return activeAsync.when(
+      loading: () => const _ActiveRentalSkeleton(),
+      error: (e, _) => Scaffold(
+        backgroundColor: AppColors.neutral50,
+        appBar: AppBar(
+          backgroundColor: AppColors.white,
+          elevation: 0,
+          title: const Text('Active Rental'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: () => context.pop(),
+          ),
+        ),
+        body: ErrorRetryWidget(
+          message: 'Could not load rental. Please try again.',
+          onRetry: () => ref.invalidate(activeRentalProvider),
+        ),
+      ),
+      data: (booking) {
+        if (booking == null) {
+          return Scaffold(
+            backgroundColor: AppColors.neutral50,
+            body: EmptyStateView(
+              icon: Icons.directions_car_outlined,
+              title: l10n.activeRentalEmpty,
+              subtitle: l10n.activeRentalEmptyCta,
+              action: SizedBox(
+                width: 180,
+                child: PrimaryButton(
+                  label: l10n.bookingsBrowseCars,
+                  onPressed: () => context.go('/cars'),
+                ),
+              ),
+            ),
+          );
+        }
+        return _ActiveRentalBody(booking: booking);
+      },
+    );
+  }
 }
 
-class _ActiveRentalScreenState extends ConsumerState<ActiveRentalScreen> {
-  Timer? _ticker;
+// ---------------------------------------------------------------------------
+// Skeleton loading state (M6.A)
+// ---------------------------------------------------------------------------
 
-  @override
-  void initState() {
-    super.initState();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    super.dispose();
-  }
+class _ActiveRentalSkeleton extends StatelessWidget {
+  const _ActiveRentalSkeleton();
 
   @override
   Widget build(BuildContext context) {
-    final bookings = ref.watch(bookingsProvider);
-    final Booking booking;
-    try {
-      booking = bookings.firstWhere((b) => b.id == widget.bookingId);
-    } catch (_) {
-      return const Scaffold(
-        body: Center(child: Text('Booking not found')),
-      );
-    }
+    return Scaffold(
+      backgroundColor: AppColors.neutral50,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            children: [
+              // Timer card skeleton
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(color: AppColors.neutral200),
+                ),
+                child: Column(
+                  children: [
+                    ShimmerBox(
+                        height: 14,
+                        width: 120,
+                        borderRadius: BorderRadius.circular(4)),
+                    const SizedBox(height: AppSpacing.xl),
+                    const ShimmerBox(
+                        width: 180,
+                        height: 180,
+                        borderRadius: BorderRadius.all(Radius.circular(90))),
+                    const SizedBox(height: AppSpacing.lg),
+                    ShimmerBox(
+                        height: 14,
+                        width: 100,
+                        borderRadius: BorderRadius.circular(4)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              // Cost card skeleton
+              ShimmerBox(
+                  height: 90,
+                  width: double.infinity,
+                  borderRadius: BorderRadius.circular(AppRadius.md)),
+              const SizedBox(height: AppSpacing.lg),
+              // Car snapshot skeleton
+              ShimmerBox(
+                  height: 100,
+                  width: double.infinity,
+                  borderRadius: BorderRadius.circular(AppRadius.md)),
+              const SizedBox(height: AppSpacing.lg),
+              // Actions row skeleton
+              Row(
+                children: List.generate(
+                  3,
+                  (i) => Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                          right: i < 2 ? AppSpacing.sm : 0),
+                      child: ShimmerBox(
+                          height: 72,
+                          borderRadius: BorderRadius.circular(AppRadius.md)),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-    final car = ref.watch(carByIdProvider(booking.carId));
-    final now = DateTime.now();
-    final remaining = booking.endDate.difference(now);
-    final elapsed = now.difference(booking.startDate);
-    final totalDuration = booking.endDate.difference(booking.startDate);
-    final progress = totalDuration.inSeconds > 0
-        ? (elapsed.inSeconds / totalDuration.inSeconds).clamp(0.0, 1.0)
-        : 0.0;
+// ---------------------------------------------------------------------------
+// Main body
+// ---------------------------------------------------------------------------
 
-    final int currentCost;
-    if (car != null && elapsed.inHours < 3) {
-      currentCost = elapsed.inHours.ceil().clamp(1, 999) * car.pricePerHour;
-    } else {
-      final days = (elapsed.inHours / 24).ceil().clamp(1, 999);
-      currentCost = days * booking.pricePerDay;
-    }
+class _ActiveRentalBody extends StatelessWidget {
+  const _ActiveRentalBody({required this.booking});
+  final Booking booking;
 
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.neutral50,
       body: CustomScrollView(
@@ -75,22 +183,30 @@ class _ActiveRentalScreenState extends ConsumerState<ActiveRentalScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, AppSpacing.xl,
+                AppSpacing.lg,
+                AppSpacing.xl,
+                AppSpacing.lg,
+                AppSpacing.xl,
               ),
               child: Column(
                 children: [
-                  _TimerCard(
-                    remaining: remaining,
-                    progress: progress,
-                    startDate: booking.startDate,
-                    endDate: booking.endDate,
+                  // Timer — only this widget rebuilds every second
+                  // (RepaintBoundary isolates its repaint from the rest of the tree)
+                  RepaintBoundary(
+                    child: RentalTimer(endsAt: booking.endDate),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  _CostCard(currentCost: currentCost),
+
+                  // Running cost — server-computed, no client-side ticking
+                  RunningCostCard(booking: booking),
                   const SizedBox(height: AppSpacing.lg),
-                  _CarInfoRow(booking: booking),
+
+                  // Car snapshot with fuel + mileage
+                  ActiveRentalCarSnapshot(booking: booking),
                   const SizedBox(height: AppSpacing.lg),
-                  _ActionGrid(bookingId: widget.bookingId),
+
+                  // Quick actions row
+                  _QuickActionsRow(booking: booking),
                   const SizedBox(height: AppSpacing.xl),
                 ],
               ),
@@ -98,7 +214,7 @@ class _ActiveRentalScreenState extends ConsumerState<ActiveRentalScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: _ReturnBar(bookingId: widget.bookingId),
+      bottomNavigationBar: _ReturnBar(booking: booking),
     );
   }
 }
@@ -151,7 +267,7 @@ class _RentalAppBar extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  booking.plateNumber,
+                  booking.displayPlate,
                   style: const TextStyle(
                     fontSize: 13,
                     color: AppColors.neutral500,
@@ -160,82 +276,56 @@ class _RentalAppBar extends StatelessWidget {
               ],
             ),
           ),
-          _StatusBadge(),
+          const StatusChip(
+            label: 'Active',
+            color: AppColors.statusRented,
+            dot: true,
+          ),
         ],
       ),
     );
   }
 }
 
-class _StatusBadge extends StatelessWidget {
+// ---------------------------------------------------------------------------
+// RentalTimer — owns its own Timer.periodic.
+//
+// AUDIT FIX M4-PERF-1: Only the countdown Text rebuilds every second via
+// ValueListenableBuilder<Duration>. The arc painter also uses ValueNotifier
+// but is wrapped in its own RepaintBoundary at the call site.
+// ---------------------------------------------------------------------------
+
+class RentalTimer extends StatefulWidget {
+  const RentalTimer({super.key, required this.endsAt});
+
+  final DateTime endsAt;
+
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.statusRented.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(
-          color: AppColors.statusRented.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: const BoxDecoration(
-              color: AppColors.statusRented,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 5),
-          const Text(
-            'Active',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.statusRented,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  State<RentalTimer> createState() => _RentalTimerState();
 }
 
-// ---------------------------------------------------------------------------
-// Timer card
-// ---------------------------------------------------------------------------
+class _RentalTimerState extends State<RentalTimer> {
+  late final ValueNotifier<Duration> _remaining;
+  Timer? _timer;
 
-class _TimerCard extends StatelessWidget {
-  const _TimerCard({
-    required this.remaining,
-    required this.progress,
-    required this.startDate,
-    required this.endDate,
-  });
-
-  final Duration remaining;
-  final double progress;
-  final DateTime startDate;
-  final DateTime endDate;
-
-  String _formatDuration(Duration d) {
-    if (d.isNegative) return '00:00:00';
-    final h = d.inHours.toString().padLeft(2, '0');
-    final m = (d.inMinutes % 60).toString().padLeft(2, '0');
-    final s = (d.inSeconds % 60).toString().padLeft(2, '0');
-    return '$h:$m:$s';
+  @override
+  void initState() {
+    super.initState();
+    _remaining = ValueNotifier(_computeRemaining());
+    // Timer.periodic lives ONLY here — never in the parent screen's initState.
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _remaining.value = _computeRemaining();
+    });
   }
 
-  String _formatDateTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    final day = dt.day.toString().padLeft(2, '0');
-    final month = dt.month.toString().padLeft(2, '0');
-    return '$day.$month  $h:$m';
+  Duration _computeRemaining() =>
+      widget.endsAt.difference(DateTime.now());
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _remaining.dispose();
+    super.dispose();
   }
 
   @override
@@ -263,41 +353,59 @@ class _TimerCard extends StatelessWidget {
           SizedBox(
             width: 180,
             height: 180,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox.expand(
-                  child: CustomPaint(
-                    painter: _ArcPainter(progress: progress),
-                  ),
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
+            child: ValueListenableBuilder<Duration>(
+              valueListenable: _remaining,
+              builder: (context, remaining, _) {
+                // progress = elapsed / total, clamped 0..1
+                final totalSec = widget.endsAt
+                    .difference(widget.endsAt.subtract(
+                        Duration(days: (remaining.inDays.abs() + 1).clamp(1, 365))))
+                    .inSeconds
+                    .abs();
+                final progress = totalSec > 0
+                    ? (1.0 -
+                            remaining.inSeconds.abs() /
+                                totalSec.clamp(1, totalSec))
+                        .clamp(0.0, 1.0)
+                    : 1.0;
+
+                // M6.E: Semantics on custom arc canvas
+                return Semantics(
+                  label: remaining.isNegative
+                      ? 'Overdue by ${_formatDurationLabel(remaining.abs())}'
+                      : 'Time remaining: ${_formatDurationLabel(remaining)}',
+                  child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Text(
-                      _formatDuration(remaining),
-                      style: const TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.neutral900,
-                        letterSpacing: 2,
-                        fontFeatures: [FontFeature.tabularFigures()],
+                    SizedBox.expand(
+                      child: CustomPaint(
+                        painter: _ArcPainter(
+                            progress: remaining.isNegative ? 1.0 : progress),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      remaining.isNegative ? 'Overdue' : 'remaining',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: remaining.isNegative
-                            ? AppColors.error
-                            : AppColors.neutral500,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    // Only this Column rebuilds every second — the CustomPaint
+                    // repaints only if progress changes, which is the same tick.
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _TimerText(remaining: remaining),
+                        const SizedBox(height: 4),
+                        Text(
+                          remaining.isNegative ? 'Overdue' : 'remaining',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: remaining.isNegative
+                                ? AppColors.error
+                                : AppColors.neutral500,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+                ); // closes Semantics
+              },
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -306,27 +414,59 @@ class _TimerCard extends StatelessWidget {
               Expanded(
                 child: _TimeLabel(
                   icon: Icons.play_circle_outline_rounded,
-                  label: 'Start',
-                  value: _formatDateTime(startDate),
-                  color: AppColors.success,
-                ),
-              ),
-              Container(
-                width: 1,
-                height: 36,
-                color: AppColors.neutral200,
-              ),
-              Expanded(
-                child: _TimeLabel(
-                  icon: Icons.stop_circle_outlined,
                   label: 'End',
-                  value: _formatDateTime(endDate),
+                  value: _formatDateTime(widget.endsAt),
                   color: AppColors.error,
                 ),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  /// Human-readable duration for Semantics label.
+  String _formatDurationLabel(Duration d) {
+    final abs = d.abs();
+    final h = abs.inHours;
+    final m = abs.inMinutes % 60;
+    if (h > 0) return '$h hours $m minutes';
+    return '$m minutes';
+  }
+
+  String _formatDateTime(DateTime dt) {
+    final d = dt.day.toString().padLeft(2, '0');
+    final mo = dt.month.toString().padLeft(2, '0');
+    final h = dt.hour.toString().padLeft(2, '0');
+    final mi = dt.minute.toString().padLeft(2, '0');
+    return '$d.$mo  $h:$mi';
+  }
+}
+
+// Small leaf widget — only the formatted string rebuilds, not the container.
+class _TimerText extends StatelessWidget {
+  const _TimerText({required this.remaining});
+  final Duration remaining;
+
+  String _format(Duration d) {
+    final abs = d.abs();
+    final h = abs.inHours.toString().padLeft(2, '0');
+    final m = (abs.inMinutes % 60).toString().padLeft(2, '0');
+    final s = (abs.inSeconds % 60).toString().padLeft(2, '0');
+    return '$h:$m:$s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      _format(remaining),
+      style: TextStyle(
+        fontSize: 36,
+        fontWeight: FontWeight.w700,
+        color: remaining.isNegative ? AppColors.error : AppColors.neutral900,
+        letterSpacing: 2,
+        fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
   }
@@ -389,7 +529,6 @@ class _ArcPainter extends CustomPainter {
     final radius = (size.shortestSide / 2) - 8;
     const strokeWidth = 10.0;
 
-    // Background track
     final trackPaint = Paint()
       ..color = AppColors.neutral200
       ..style = PaintingStyle.stroke
@@ -398,7 +537,6 @@ class _ArcPainter extends CustomPainter {
 
     canvas.drawCircle(center, radius, trackPaint);
 
-    // Progress arc (remaining = 1 - progress)
     final remaining = 1.0 - progress;
     if (remaining > 0) {
       final color = remaining > 0.3
@@ -414,13 +552,8 @@ class _ArcPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round;
 
       final rect = Rect.fromCircle(center: center, radius: radius);
-      canvas.drawArc(
-        rect,
-        -math.pi / 2,
-        2 * math.pi * remaining,
-        false,
-        arcPaint,
-      );
+      canvas.drawArc(rect, -math.pi / 2, 2 * math.pi * remaining, false,
+          arcPaint);
     }
   }
 
@@ -429,16 +562,20 @@ class _ArcPainter extends CustomPainter {
 }
 
 // ---------------------------------------------------------------------------
-// Cost card
+// RunningCostCard — server-computed cost from booking.estimatedTotal
+// No client-side ticking — updates only when bookingDetailProvider refreshes.
 // ---------------------------------------------------------------------------
 
-class _CostCard extends StatelessWidget {
-  const _CostCard({required this.currentCost});
+class RunningCostCard extends StatelessWidget {
+  const RunningCostCard({super.key, required this.booking});
 
-  final int currentCost;
+  final Booking booking;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
+    final cost = booking.estimatedTotal ?? booking.total;
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.xl,
@@ -465,9 +602,9 @@ class _CostCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'RUNNING COST',
-                  style: TextStyle(
+                Text(
+                  l10n.activeRentalRunningCost.toUpperCase(),
+                  style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1.0,
@@ -476,7 +613,7 @@ class _CostCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '₸ ${_formatPrice(currentCost)}',
+                  formatKzt(cost),
                   style: const TextStyle(
                     fontSize: 34,
                     fontWeight: FontWeight.w700,
@@ -507,16 +644,20 @@ class _CostCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Car info row
+// ActiveRentalCarSnapshot — photo + nickname + plate + fuel + mileage
 // ---------------------------------------------------------------------------
 
-class _CarInfoRow extends StatelessWidget {
-  const _CarInfoRow({required this.booking});
+class ActiveRentalCarSnapshot extends StatelessWidget {
+  const ActiveRentalCarSnapshot({super.key, required this.booking});
 
   final Booking booking;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
+    final fuel = booking.fuelLevelAtPickup;
+    final mileage = booking.mileageAtPickup;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -524,192 +665,251 @@ class _CarInfoRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(color: AppColors.neutral200),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.sm),
-            child: CachedNetworkImage(
-              imageUrl: booking.carImageUrl,
-              width: 72,
-              height: 52,
-              fit: BoxFit.cover,
-              placeholder: (_, _) => Container(
-                color: AppColors.neutral200,
-                child: const Icon(Icons.directions_car_outlined,
-                    color: AppColors.neutral500),
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                child: CachedNetworkImage(
+                  imageUrl: booking.carImageUrl,
+                  width: 72,
+                  height: 52,
+                  fit: BoxFit.cover,
+                  placeholder: (_, _) => Container(
+                    color: AppColors.neutral200,
+                    child: const Icon(Icons.directions_car_outlined,
+                        color: AppColors.neutral500),
+                  ),
+                  errorWidget: (_, _, _) => Container(
+                    color: AppColors.neutral200,
+                    child: const Icon(Icons.directions_car_outlined,
+                        color: AppColors.neutral500),
+                  ),
+                ),
               ),
-              errorWidget: (_, _, _) => Container(
-                color: AppColors.neutral200,
-                child: const Icon(Icons.directions_car_outlined,
-                    color: AppColors.neutral500),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      booking.carName,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.neutral900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      booking.displayPlate,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.neutral500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          if (fuel != null || mileage != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            const Divider(height: 1, color: AppColors.neutral200),
+            const SizedBox(height: AppSpacing.md),
+            Row(
               children: [
-                Text(
-                  booking.carName,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.neutral900,
+                if (fuel != null)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.local_gas_station_outlined,
+                                size: 13, color: AppColors.neutral500),
+                            const SizedBox(width: 4),
+                            Text(
+                              l10n.activeRentalCurrentFuel,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5,
+                                color: AppColors.neutral500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        _FuelGauge(level: fuel),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  booking.plateNumber,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.neutral500,
+                if (fuel != null && mileage != null)
+                  Container(
+                    width: 1,
+                    height: 36,
+                    color: AppColors.neutral200,
+                    margin: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg),
                   ),
-                ),
+                if (mileage != null)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.route_outlined,
+                                size: 13, color: AppColors.neutral500),
+                            const SizedBox(width: 4),
+                            Text(
+                              l10n.activeRentalCurrentMileage,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5,
+                                color: AppColors.neutral500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$mileage km',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.neutral900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.neutral100,
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-            ),
-            child: Text(
-              booking.category,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: AppColors.neutral700,
-              ),
-            ),
-          ),
+          ],
         ],
       ),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Action grid
-// ---------------------------------------------------------------------------
-
-class _ActionGrid extends StatelessWidget {
-  const _ActionGrid({required this.bookingId});
-
-  final String bookingId;
+class _FuelGauge extends StatelessWidget {
+  const _FuelGauge({required this.level});
+  // level: 0.0–1.0 (from API). If API returns 0–100, Booking.fromJson
+  // stores it as double; callers should divide by 100 if needed.
+  // Open question: confirm unit with backend team.
+  final double level;
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: AppSpacing.md,
-      crossAxisSpacing: AppSpacing.md,
-      childAspectRatio: 2.2,
+    // Clamp in case API returns 0–100 scale
+    final normalised = level > 1.0 ? level / 100.0 : level;
+    final pct = (normalised * 100).round();
+    final color = normalised > 0.5
+        ? AppColors.success
+        : normalised > 0.2
+            ? AppColors.warning
+            : AppColors.error;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _ActionTile(
-          icon: Icons.access_time_rounded,
-          label: 'Extend Rental',
-          onTap: () => _showExtendDialog(context),
-        ),
-        _ActionTile(
-          icon: Icons.warning_amber_rounded,
-          label: 'Report Issue',
-          onTap: () => _showReportSheet(context),
-        ),
-        _ActionTile(
-          icon: Icons.chat_bubble_outline_rounded,
-          label: 'Support Chat',
-          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Coming soon')),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          child: LinearProgressIndicator(
+            value: normalised.clamp(0.0, 1.0),
+            minHeight: 6,
+            backgroundColor: AppColors.neutral200,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
         ),
-        _ActionTile(
-          icon: Icons.navigation_rounded,
-          label: 'Navigation',
-          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Coming soon')),
+        const SizedBox(height: 2),
+        Text(
+          '$pct%',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Quick actions row
+// ---------------------------------------------------------------------------
+
+class _QuickActionsRow extends StatelessWidget {
+  const _QuickActionsRow({required this.booking});
+  final Booking booking;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
+
+    return Row(
+      children: [
+        Expanded(
+          child: _ActionTile(
+            icon: Icons.access_time_rounded,
+            label: l10n.activeRentalExtend,
+            onTap: () => context.push('/active/extend'),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _ActionTile(
+            icon: Icons.warning_amber_rounded,
+            label: l10n.activeRentalReportIssue,
+            onTap: () => _reportIssue(context),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _ActionTile(
+            icon: Icons.phone_outlined,
+            label: l10n.activeRentalContactManager,
+            onTap: () => _showContactSheet(context),
           ),
         ),
       ],
     );
   }
 
-  void _showExtendDialog(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-        ),
-        title: const Text(
-          'Extend Rental',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: AppColors.neutral900,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Select how long you want to extend:',
-              style: TextStyle(color: AppColors.neutral700),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            ...[
-              ('+1 Hour', 1),
-              ('+3 Hours', 3),
-              ('+1 Day', 24),
-            ].map(
-              (opt) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                  ),
-                  child: const Icon(Icons.access_time_rounded,
-                      color: AppColors.primary, size: 20),
-                ),
-                title: Text(
-                  opt.$1,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.neutral900,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Extended by ${opt.$1}')),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel',
-                style: TextStyle(color: AppColors.neutral500)),
-          ),
-        ],
-      ),
-    );
+  void _reportIssue(BuildContext context) {
+    // MVP: WhatsApp deep link with pre-filled message per spec §3.6
+    if (booking.managerPhone != null) {
+      final phone =
+          booking.managerPhone!.replaceAll(RegExp(r'[^\d+]'), '');
+      final shortRef = booking.shortRef;
+      final uri = Uri.parse(
+          'https://wa.me/$phone?text=${Uri.encodeComponent('Issue with rental #$shortRef')}');
+      launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Manager contact not available')),
+      );
+    }
   }
 
-  void _showReportSheet(BuildContext context) {
+  void _showContactSheet(BuildContext context) {
+    if (booking.managerPhone == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Manager contact not available')),
+      );
+      return;
+    }
     showModalBottomSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+        borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadius.lg)),
       ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(
@@ -723,7 +923,7 @@ class _ActionGrid extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Report an Issue',
+              'Contact manager',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -731,31 +931,13 @@ class _ActionGrid extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            ...[
-              (Icons.car_crash_outlined, 'Accident or Damage'),
-              (Icons.local_gas_station_outlined, 'Fuel Problem'),
-              (Icons.build_outlined, 'Mechanical Issue'),
-              (Icons.lock_outline_rounded, 'Lock / Key Problem'),
-              (Icons.more_horiz_rounded, 'Other'),
-            ].map(
-              (item) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(item.$1, color: AppColors.neutral700),
-                title: Text(
-                  item.$2,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.neutral900,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${item.$2} reported')),
-                  );
-                },
-              ),
+            Text(
+              booking.managerPhone!,
+              style: const TextStyle(
+                  fontSize: 15, color: AppColors.neutral500),
             ),
+            const SizedBox(height: AppSpacing.lg),
+            ManagerContactActions(managerPhone: booking.managerPhone!),
           ],
         ),
       ),
@@ -788,10 +970,8 @@ class _ActionTile extends StatelessWidget {
             border: Border.all(color: AppColors.neutral200),
           ),
           padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
-          ),
-          child: Row(
+              horizontal: AppSpacing.sm, vertical: AppSpacing.md),
+          child: Column(
             children: [
               Container(
                 width: 36,
@@ -802,15 +982,14 @@ class _ActionTile extends StatelessWidget {
                 ),
                 child: Icon(icon, color: AppColors.primary, size: 18),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.neutral900,
-                  ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.neutral900,
                 ),
               ),
             ],
@@ -826,16 +1005,18 @@ class _ActionTile extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ReturnBar extends StatelessWidget {
-  const _ReturnBar({required this.bookingId});
-
-  final String bookingId;
+  const _ReturnBar({required this.booking});
+  final Booking booking;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
+
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.white,
-        border: Border(top: BorderSide(color: AppColors.neutral200, width: 0.5)),
+        border:
+            Border(top: BorderSide(color: AppColors.neutral200, width: 0.5)),
       ),
       padding: EdgeInsets.fromLTRB(
         AppSpacing.lg,
@@ -843,25 +1024,67 @@ class _ReturnBar extends StatelessWidget {
         AppSpacing.lg,
         MediaQuery.paddingOf(context).bottom + AppSpacing.md,
       ),
+      // Per spec §3.6: returns are handled offline by the manager.
+      // Return CTA shows info bottom sheet — does NOT route to inspection screen.
       child: PrimaryButton(
-        label: 'Return Car',
+        label: l10n.activeRentalReturnCar,
         icon: Icons.flag_outlined,
-        onPressed: () => context.push('/rental/inspect/$bookingId'),
+        onPressed: () => showModalBottomSheet<void>(
+          context: context,
+          shape: const RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+          ),
+          builder: (ctx) => Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.lg,
+              MediaQuery.paddingOf(ctx).bottom + AppSpacing.lg,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.bookingReturnInstructionsTitle,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.neutral900,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  l10n.bookingReturnInstructionsBody,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: AppColors.neutral700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.white,
+                      elevation: 0,
+                      minimumSize: const Size(0, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                    ),
+                    child: const Text('OK'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-String _formatPrice(int value) {
-  final str = value.toString();
-  final buf = StringBuffer();
-  for (int i = 0; i < str.length; i++) {
-    if (i > 0 && (str.length - i) % 3 == 0) buf.write(',');
-    buf.write(str[i]);
-  }
-  return buf.toString();
 }

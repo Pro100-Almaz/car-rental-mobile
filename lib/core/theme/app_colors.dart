@@ -17,6 +17,9 @@ class AppColors {
   // Neutrals
   static const Color neutral900 = Color(0xFF1A1A2E);
   static const Color neutral700 = Color(0xFF4A4A68);
+  // neutral600: #52525B — WCAG 4.5:1 on white, used for body/hint text instead
+  // of neutral500 (#8E8EA0) which fails contrast on white backgrounds.
+  static const Color neutral600 = Color(0xFF52525B);
   static const Color neutral500 = Color(0xFF8E8EA0);
   static const Color neutral300 = Color(0xFFD1D1DB);
   static const Color neutral200 = Color(0xFFE8E8EE);
@@ -38,6 +41,9 @@ class AppColors {
   static const Color statusInService = Color(0xFFF97316);
   static const Color statusInWash = Color(0xFF06B6D4);
   static const Color statusDecommissioned = Color(0xFF6B7280);
+
+  // Neutral 400 (between 300 and 500)
+  static const Color neutral400 = Color(0xFFB0B0C0);
 
   // Star / rating
   static const Color star = Color(0xFFEAB308);

@@ -1,16 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/providers/notification_provider.dart';
 import '../../core/providers/providers.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../core/widgets/category_chip.dart';
-import '../../core/widgets/glass_app_bar.dart';
+import '../../core/widgets/app_top_bar.dart';
+import '../../core/widgets/empty_state_view.dart';
+import '../../core/widgets/section_header.dart';
 import '../../l10n/app_localizations.dart';
 import 'data/sample_cars.dart';
 import 'widgets/car_card.dart';
+
+const _kMockLocations = [
+  'Almaty Center',
+  'Dostyk Plaza',
+  'Almaty Airport',
+  'Railway Station',
+  'Mega Center',
+];
 
 String _categoryLabel(AppL10n l10n, String id) {
   switch (id) {
@@ -36,6 +48,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   AppNavDestination _nav = AppNavDestination.home;
+  String? _selectedLocation;
+  DateTimeRange? _selectedDateRange;
 
   void _onNav(AppNavDestination d) {
     if (d == _nav) return;
@@ -52,6 +66,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  Future<void> _showLocationSheet() async {
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+      ),
+      builder: (_) => const _LocationSheet(),
+    );
+    if (result != null) {
+      setState(() => _selectedLocation = result);
+    }
+  }
+
+  Future<void> _showDateRangePicker() async {
+    final now = DateTime.now();
+    final result = await showDateRangePicker(
+      context: context,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      initialDateRange: _selectedDateRange,
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.primary,
+            onPrimary: AppColors.white,
+            onSurface: AppColors.neutral900,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (result != null) {
+      setState(() => _selectedDateRange = result);
+    }
+  }
+
+  String _formatDateRange(DateTimeRange range) {
+    final fmt = DateFormat('MMM d');
+    return '${fmt.format(range.start)} – ${fmt.format(range.end)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
@@ -63,9 +120,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final showFiltered = selectedCategory != 'all';
 
     return Scaffold(
-      appBar: const GlassAppBar(
+      appBar: AppTopBar(
         avatarUrl:
             'https://lh3.googleusercontent.com/aida-public/AB6AXuBxmcWrd2jPGzuah_fpGZ23pCaYfvQE_NSG2iturHwMmVrgEZRk4InsvS28fVL8oOulzlhb224tTHb3AXtmGf1n3_nSIcs0mH2wT1D_SoFZNkibTfH9sAP3d8z92wZrtIWiTfvfRtIClwdpFAAzLcjqD9I7K1DYGTM9IAWZ9DCsy4_jQE5oINByoD4N74HSOYFBByqcWzJRiLUeR1BIJicJ37pECJJCFCLu4B-_CF_0NiREO_W5PEl-t6ACXpqkhJ-ZbsjdXsCgxTR9',
+        notificationCount: ref.watch(unreadCountProvider),
+        onNotificationTap: () => context.push('/notifications'),
       ),
       bottomNavigationBar: AppBottomNav(current: _nav, onSelect: _onNav),
       body: ListView(
@@ -92,6 +151,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: _SearchBar(
               whereHint: l10n.homeSearchWhere,
               whenHint: l10n.homeSearchWhen,
+              selectedLocation: _selectedLocation,
+              selectedDateRange: _selectedDateRange != null
+                  ? _formatDateRange(_selectedDateRange!)
+                  : null,
+              onWhereTap: _showLocationSheet,
+              onWhenTap: _showDateRangePicker,
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -128,22 +193,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(height: AppSpacing.md),
             if (filteredCars.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.xxl),
-                child: Column(
-                  children: [
-                    Icon(Icons.directions_car_outlined,
-                        size: 48, color: AppColors.neutral300),
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      'No cars in this category',
-                      style: TextStyle(
-                        color: AppColors.neutral500,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ],
-                ),
+              EmptyStateView(
+                icon: Icons.directions_car_outlined,
+                title: 'No cars in this category',
               )
             else
               ...filteredCars.map(
@@ -158,7 +210,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
           ] else ...[
-            _SectionHeader(title: l10n.homeNearby),
+            SectionHeader(title: l10n.homeNearby),
             const SizedBox(height: AppSpacing.md),
             SizedBox(
               height: 280,
@@ -205,10 +257,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 class _SearchBar extends StatelessWidget {
-  const _SearchBar({required this.whereHint, required this.whenHint});
+  const _SearchBar({
+    required this.whereHint,
+    required this.whenHint,
+    required this.onWhereTap,
+    required this.onWhenTap,
+    this.selectedLocation,
+    this.selectedDateRange,
+  });
 
   final String whereHint;
   final String whenHint;
+  final VoidCallback onWhereTap;
+  final VoidCallback onWhenTap;
+  final String? selectedLocation;
+  final String? selectedDateRange;
 
   @override
   Widget build(BuildContext context) {
@@ -222,20 +285,41 @@ class _SearchBar extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: _SearchField(icon: Icons.location_on_outlined, hint: whereHint),
+            child: GestureDetector(
+              onTap: onWhereTap,
+              child: _SearchField(
+                icon: Icons.location_on_outlined,
+                hint: whereHint,
+                value: selectedLocation,
+              ),
+            ),
           ),
           Container(width: 1, height: 28, color: AppColors.neutral200),
           Expanded(
-            child: _SearchField(icon: Icons.calendar_today_outlined, hint: whenHint),
-          ),
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(AppRadius.md),
+            child: GestureDetector(
+              onTap: onWhenTap,
+              child: _SearchField(
+                icon: Icons.calendar_today_outlined,
+                hint: whenHint,
+                value: selectedDateRange,
+              ),
             ),
-            child: const Icon(Icons.search_rounded, color: AppColors.white, size: 20),
+          ),
+          GestureDetector(
+            onTap: () {
+              // Category filtering is already reactive via selectedCategoryProvider.
+              // Tapping search simply confirms the current selection — no extra action needed.
+            },
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: const Icon(
+                  Icons.search_rounded, color: AppColors.white, size: 20),
+            ),
           ),
         ],
       ),
@@ -244,23 +328,34 @@ class _SearchBar extends StatelessWidget {
 }
 
 class _SearchField extends StatelessWidget {
-  const _SearchField({required this.icon, required this.hint});
+  const _SearchField({
+    required this.icon,
+    required this.hint,
+    this.value,
+  });
 
   final IconData icon;
   final String hint;
+  final String? value;
 
   @override
   Widget build(BuildContext context) {
+    final hasValue = value != null && value!.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: AppColors.neutral500),
+          Icon(icon, size: 18,
+              color: hasValue ? AppColors.primary : AppColors.neutral500),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
-              hint,
-              style: const TextStyle(fontSize: 14, color: AppColors.neutral500),
+              hasValue ? value! : hint,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 14,
+                color: hasValue ? AppColors.neutral900 : AppColors.neutral500,
+              ),
             ),
           ),
         ],
@@ -269,23 +364,81 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
+class _LocationSheet extends StatefulWidget {
+  const _LocationSheet();
 
-  final String title;
+  @override
+  State<_LocationSheet> createState() => _LocationSheetState();
+}
+
+class _LocationSheetState extends State<_LocationSheet> {
+  String _query = '';
 
   @override
   Widget build(BuildContext context) {
+    final filtered = _kMockLocations
+        .where((l) => l.toLowerCase().contains(_query.toLowerCase()))
+        .toList();
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: AppColors.neutral900,
-        ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, AppSpacing.md),
+            child: Text(
+              'Select Location',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.neutral900,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: TextField(
+              autofocus: true,
+              onChanged: (v) => setState(() => _query = v),
+              decoration: InputDecoration(
+                hintText: 'Search location...',
+                hintStyle: const TextStyle(
+                    color: AppColors.neutral500, fontSize: 14),
+                prefixIcon: const Icon(Icons.search_rounded,
+                    color: AppColors.neutral500, size: 20),
+                contentPadding:
+                    const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                filled: true,
+                fillColor: AppColors.neutral100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ...filtered.map(
+            (loc) => ListTile(
+              leading: const Icon(Icons.location_on_outlined,
+                  color: AppColors.primary, size: 20),
+              title: Text(
+                loc,
+                style: const TextStyle(
+                    fontSize: 15, color: AppColors.neutral900),
+              ),
+              onTap: () => Navigator.of(context).pop(loc),
+            ),
+          ),
+          SizedBox(height: AppSpacing.lg),
+        ],
       ),
     );
   }
 }
+

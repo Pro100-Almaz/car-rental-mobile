@@ -291,27 +291,7 @@ class _ActionStack extends StatelessWidget {
                 fontSize: 16,
               ),
             ),
-            child: Text(l10n.commonLogin),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: OutlinedButton(
-            onPressed: () => context.push('/register'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.white,
-              side: BorderSide(color: AppColors.white.withValues(alpha: 0.4)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-              textStyle: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-              ),
-            ),
-            child: Text(l10n.loginSignup),
+            child: Text(l10n.splashGetStarted),
           ),
         ),
         const SizedBox(height: AppSpacing.lg),

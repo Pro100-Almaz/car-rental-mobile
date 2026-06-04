@@ -1,10 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/models/car.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../l10n/app_localizations.dart';
-import '../data/sample_cars.dart';
 
 class CarFeatureCard extends StatelessWidget {
   const CarFeatureCard({super.key, required this.car, this.onTap});
@@ -32,9 +32,12 @@ class CarFeatureCard extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     CachedNetworkImage(
-                      imageUrl: car.imageUrl,
+                      imageUrl: car.primaryPhoto,
                       fit: BoxFit.cover,
-                      placeholder: (_, _) => Container(color: AppColors.neutral200),
+                      placeholder: (ctx, ph) =>
+                          Container(color: AppColors.neutral200),
+                      errorWidget: (ctx, err, trace) =>
+                          Container(color: AppColors.neutral200),
                     ),
                     Positioned(
                       top: AppSpacing.sm,
@@ -58,7 +61,7 @@ class CarFeatureCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            car.name,
+                            car.displayTitle,
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -67,7 +70,7 @@ class CarFeatureCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '₸${car.pricePerHour}${l10n.carPerHour}',
+                          '₸${car.dailyRate}${l10n.carPerDay}',
                           style: const TextStyle(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w700,
@@ -80,22 +83,11 @@ class CarFeatureCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          car.plateNumber,
+                          car.maskedPlate,
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.neutral500,
                             fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Icon(Icons.location_on_outlined,
-                            size: 14, color: AppColors.neutral500),
-                        const SizedBox(width: 2),
-                        Text(
-                          l10n.carMetersAway('${car.distanceMeters}'),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.neutral500,
                           ),
                         ),
                       ],
@@ -105,12 +97,12 @@ class CarFeatureCard extends StatelessWidget {
                       children: [
                         _InfoChip(
                           icon: Icons.local_gas_station_outlined,
-                          label: '${(car.fuelLevel * 100).toInt()}%',
+                          label: _fuelLabel(car.fuelType),
                         ),
                         const SizedBox(width: AppSpacing.sm),
                         _InfoChip(
                           icon: Icons.settings_outlined,
-                          label: car.transmission,
+                          label: _transmissionLabel(car.transmission),
                         ),
                         const SizedBox(width: AppSpacing.sm),
                         _InfoChip(
@@ -254,10 +246,12 @@ class CarListTile extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(AppRadius.md),
                 child: CachedNetworkImage(
-                  imageUrl: car.imageUrl,
+                  imageUrl: car.primaryPhoto,
                   width: 80,
                   height: 80,
                   fit: BoxFit.cover,
+                  errorWidget: (ctx, err, trace) =>
+                      Container(color: AppColors.neutral200),
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
@@ -269,7 +263,7 @@ class CarListTile extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            car.name,
+                            car.displayTitle,
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -278,7 +272,7 @@ class CarListTile extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '₸${car.pricePerHour}${l10n.carPerHour}',
+                          '₸${car.dailyRate}${l10n.carPerDay}',
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             color: AppColors.primary,
@@ -288,7 +282,7 @@ class CarListTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${car.plateNumber} • ${_categoryLabel(l10n, car.category)}',
+                      '${car.maskedPlate} • ${_categoryLabel(l10n, car.category)}',
                       style: const TextStyle(
                         fontSize: 13,
                         color: AppColors.neutral500,
@@ -297,25 +291,22 @@ class CarListTile extends StatelessWidget {
                     const SizedBox(height: AppSpacing.sm),
                     Row(
                       children: [
-                        const Icon(Icons.star_rounded, color: AppColors.star, size: 14),
-                        const SizedBox(width: 2),
-                        Text(
-                          l10n.carReviewsPlus(
-                            car.rating.toStringAsFixed(1),
-                            car.reviewCount,
-                          ),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.neutral900,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Icon(Icons.local_gas_station_outlined,
+                        const Icon(Icons.local_gas_station_outlined,
                             size: 14, color: AppColors.neutral500),
                         const SizedBox(width: 2),
                         Text(
-                          '${(car.fuelLevel * 100).toInt()}%',
+                          _fuelLabel(car.fuelType),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.neutral500,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        const Icon(Icons.settings_outlined,
+                            size: 14, color: AppColors.neutral500),
+                        const SizedBox(width: 2),
+                        Text(
+                          _transmissionLabel(car.transmission),
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.neutral500,
@@ -334,17 +325,39 @@ class CarListTile extends StatelessWidget {
   }
 }
 
-String _categoryLabel(AppL10n l10n, String id) {
-  switch (id) {
-    case 'economy':
+String _categoryLabel(AppL10n l10n, VehicleCategory category) {
+  switch (category) {
+    case VehicleCategory.economy:
       return l10n.categoryEconomy;
-    case 'comfort':
+    case VehicleCategory.comfort:
       return l10n.categoryComfort;
-    case 'business':
+    case VehicleCategory.business:
       return l10n.categoryBusiness;
-    case 'suv':
+    case VehicleCategory.suv:
       return l10n.categorySuv;
-    default:
-      return l10n.categoryAll;
+    case VehicleCategory.minivan:
+      return 'Minivan';
+  }
+}
+
+String _fuelLabel(FuelType f) {
+  switch (f) {
+    case FuelType.petrol:
+      return 'Petrol';
+    case FuelType.diesel:
+      return 'Diesel';
+    case FuelType.hybrid:
+      return 'Hybrid';
+    case FuelType.electric:
+      return 'Electric';
+  }
+}
+
+String _transmissionLabel(Transmission t) {
+  switch (t) {
+    case Transmission.automatic:
+      return 'Auto';
+    case Transmission.manual:
+      return 'Manual';
   }
 }

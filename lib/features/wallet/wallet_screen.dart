@@ -3,22 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/formatters/money.dart';
 import '../../core/providers/wallet_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/widgets/app_bottom_nav.dart';
-import '../../core/widgets/glass_app_bar.dart';
+import '../../core/widgets/app_top_bar.dart';
 import '../../l10n/app_localizations.dart';
 
-String _formatPrice(int amount) {
-  final s = amount.toString();
-  final buf = StringBuffer();
-  for (var i = 0; i < s.length; i++) {
-    if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
-    buf.write(s[i]);
-  }
-  return buf.toString();
-}
 
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
@@ -57,12 +49,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       ),
       builder: (_) => _TopUpSheet(
         onConfirm: (amount) {
-          ref.read(walletProvider.notifier).topUp(amount);
+          // TODO(M5): wire topUp to POST /mobile/clients/me/wallet/topup
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('₸ ${_formatPrice(amount)} added to wallet'),
-              backgroundColor: AppColors.success,
+            const SnackBar(
+              content: Text('Top-up coming soon'),
             ),
           );
         },
@@ -81,20 +72,14 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // TODO(M5): wire addPaymentMethod to POST /mobile/clients/me/payment-methods
             _AddMethodOption(
               icon: Icons.account_balance_wallet_rounded,
               title: 'Kaspi Pay',
               onTap: () {
                 Navigator.of(ctx).pop();
-                final id = 'pm${DateTime.now().millisecondsSinceEpoch}';
-                ref.read(walletProvider.notifier).addPaymentMethod(
-                  PaymentMethod(
-                    id: id,
-                    type: 'kaspi',
-                    title: 'Kaspi Pay',
-                    subtitle: '•••• ${(1000 + DateTime.now().millisecondsSinceEpoch % 9000)}',
-                    icon: Icons.account_balance_wallet_rounded,
-                  ),
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Payment methods coming soon')),
                 );
               },
             ),
@@ -104,15 +89,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               title: 'Bank Card',
               onTap: () {
                 Navigator.of(ctx).pop();
-                final id = 'pm${DateTime.now().millisecondsSinceEpoch}';
-                ref.read(walletProvider.notifier).addPaymentMethod(
-                  PaymentMethod(
-                    id: id,
-                    type: 'card',
-                    title: 'Bank Card',
-                    subtitle: 'Visa •••• ${(1000 + DateTime.now().millisecondsSinceEpoch % 9000)}',
-                    icon: Icons.credit_card_rounded,
-                  ),
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Payment methods coming soon')),
                 );
               },
             ),
@@ -134,7 +112,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     final wallet = ref.watch(walletProvider);
 
     return Scaffold(
-      appBar: const GlassAppBar(),
+      appBar: const AppTopBar(),
       bottomNavigationBar: AppBottomNav(current: _nav, onSelect: _onNav),
       body: ListView(
         padding: EdgeInsets.only(
@@ -175,7 +153,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    '₸ ${_formatPrice(wallet.balance)}',
+                    '₸ ${formatKzt(wallet.balance, symbol: false)}',
                     style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w700,
@@ -212,6 +190,13 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             ),
           ),
           const SizedBox(height: AppSpacing.xxl),
+          if (wallet.outstandingDebt > 0) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: _DebtCard(amount: wallet.outstandingDebt),
+            ),
+            const SizedBox(height: AppSpacing.xxl),
+          ],
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: Text(
@@ -230,8 +215,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               title: method.title,
               subtitle: method.subtitle,
               isDefault: method.isDefault,
-              onTap: () =>
-                  ref.read(walletProvider.notifier).setDefaultPaymentMethod(method.id),
+              // TODO(M5): wire setDefaultPaymentMethod to PATCH /mobile/clients/me/payment-methods/{id}
+              onTap: () {},
             ),
           ),
           Padding(
@@ -271,7 +256,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               title: tx.title,
               subtitle: tx.subtitle,
               amount:
-                  '${tx.isDebit ? '-' : '+'}₸ ${_formatPrice(tx.amount)}',
+                  '${tx.isDebit ? '-' : '+'}₸ ${formatKzt(tx.amount, symbol: false)}',
               isDebit: tx.isDebit,
             ),
           ),
@@ -361,7 +346,7 @@ class _TopUpSheetState extends State<_TopUpSheet> {
                   ),
                   alignment: Alignment.center,
                   child: Text(
-                    '₸ ${_formatPrice(preset)}',
+                    '₸ ${formatKzt(preset, symbol: false)}',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -567,6 +552,80 @@ class _PaymentMethodTile extends StatelessWidget {
               ),
             )
           : null,
+    );
+  }
+}
+
+class _DebtCard extends StatelessWidget {
+  const _DebtCard({required this.amount});
+  final int amount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 20),
+              const SizedBox(width: AppSpacing.sm),
+              const Text(
+                'Outstanding Balance',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.error,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            '₸ ${formatKzt(amount, symbol: false)}',
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              color: AppColors.error,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          const Text(
+            'Fuel difference from rental #1234',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.neutral500,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          OutlinedButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Payment processing...')),
+              );
+            },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.error,
+              side: const BorderSide(color: AppColors.error),
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+            ),
+            child: const Text(
+              'Pay Now',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

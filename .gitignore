@@ -1,3 +1,6 @@
+# Pre-v1 archive (code preserved outside lib/ before M1 cleanup)
+.archive_pre_v1/
+
 # Miscellaneous
 *.class
 *.log

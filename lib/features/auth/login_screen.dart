@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/haptics/haptics.dart';
+import '../../core/observability/analytics.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
@@ -31,7 +33,7 @@ class LoginScreen extends StatelessWidget {
                   const SizedBox(height: AppSpacing.xxxl),
                   _LoginCard(),
                   const SizedBox(height: AppSpacing.xxl),
-                  _SignupPrompt(onTap: () => context.push('/register')),
+                  _SignupPrompt(onTap: () => context.push('/signup')),
                 ],
               ),
             ),
@@ -93,51 +95,73 @@ class _LoginCard extends ConsumerStatefulWidget {
 }
 
 class _LoginCardState extends ConsumerState<_LoginCard> {
-  final _phoneCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
 
-  String? _phoneError;
+  String? _emailError;
   String? _passwordError;
   String? _loginError;
   bool _loading = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
-    _phoneCtrl.dispose();
+    _emailCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _onLogin() async {
-    final phone = _phoneCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text;
+    final l10n = AppL10n.of(context);
 
-    String? phoneErr;
+    String? emailErr;
     String? passwordErr;
 
-    if (phone.isEmpty) phoneErr = 'Phone number is required';
-    if (password.length < 6) passwordErr = 'Password must be at least 6 characters';
+    if (email.isEmpty || !email.contains('@')) {
+      emailErr = l10n.commonEmail;
+    }
+    if (password.isEmpty) {
+      passwordErr = l10n.authPasswordRule;
+    }
 
     setState(() {
-      _phoneError = phoneErr;
+      _emailError = emailErr;
       _passwordError = passwordErr;
       _loginError = null;
     });
 
-    if (phoneErr != null || passwordErr != null) return;
+    if (emailErr != null || passwordErr != null) return;
+
+    await AppHaptics.medium();
+    Analytics.instance.track(kEvtSignupStarted);
 
     setState(() => _loading = true);
-    final ok = await ref
+    final result = await ref
         .read(currentUserProvider.notifier)
-        .login(phone: phone, password: password);
+        .login(email: email, password: password);
     if (!mounted) return;
-    if (ok) {
-      context.go('/home');
-    } else {
-      setState(() {
-        _loading = false;
-        _loginError = 'Invalid credentials';
-      });
+
+    switch (result) {
+      case 'ok':
+        // Router gate handles redirect based on verification status.
+        context.go('/cars');
+      case 'unverified':
+        // Backend rejected login — email not verified.
+        // Prompt the user to complete verification.
+        setState(() => _loading = false);
+        context.push('/verify-email', extra: {'email': email});
+      case 'invalid_credentials':
+        setState(() {
+          _loading = false;
+          _loginError = l10n.authInvalidCredentials;
+        });
+      default:
+        setState(() {
+          _loading = false;
+          _loginError = result;
+        });
     }
   }
 
@@ -153,111 +177,74 @@ class _LoginCardState extends ConsumerState<_LoginCard> {
         boxShadow: AppColors.elevation1,
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _Field(
-            label: l10n.commonPhone,
-            controller: _phoneCtrl,
-            hint: l10n.commonPhoneHint,
-            icon: Icons.phone_outlined,
-            keyboardType: TextInputType.phone,
+            label: l10n.commonEmail,
+            controller: _emailCtrl,
+            hint: l10n.commonEmailHint,
+            icon: Icons.email_outlined,
+            keyboardType: TextInputType.emailAddress,
+            error: _emailError,
           ),
-          if (_phoneError != null) ...[
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                _phoneError!,
-                style: const TextStyle(
-                  color: AppColors.error,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ],
           const SizedBox(height: AppSpacing.lg),
           _Field(
             label: l10n.commonPassword,
             controller: _passwordCtrl,
             hint: '••••••••',
             icon: Icons.lock_outline_rounded,
-            obscure: true,
+            obscure: _obscurePassword,
+            error: _passwordError,
             trailing: TextButton(
-              onPressed: () {},
+              onPressed: () => context.push('/forgot-password'),
               style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 0),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                minimumSize: const Size(44, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                foregroundColor: AppColors.primary,
               ),
-              child: Text(
-                l10n.loginForgot,
-                style: const TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
+              child: Text(l10n.loginForgot),
+            ),
+            suffixIcon: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
+                child: Icon(
+                  _obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  color: AppColors.neutral500,
+                  size: 20,
                 ),
               ),
             ),
           ),
-          if (_passwordError != null) ...[
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                _passwordError!,
-                style: const TextStyle(
-                  color: AppColors.error,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ],
           if (_loginError != null) ...[
             const SizedBox(height: AppSpacing.sm),
-            Text(
-              _loginError!,
-              style: const TextStyle(
-                color: AppColors.error,
-                fontSize: 12,
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(
+                    color: AppColors.error.withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                _loginError!,
+                style: const TextStyle(
+                  color: AppColors.error,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],
           const SizedBox(height: AppSpacing.xl),
           PrimaryButton(
-            label: l10n.loginButton,
+            label: _loading ? '' : l10n.loginButton,
+            isLoading: _loading,
             onPressed: _loading ? null : _onLogin,
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          _Divider(label: l10n.loginDivider),
-          const SizedBox(height: AppSpacing.xl),
-          SecondaryButton(
-            label: l10n.commonContinueWithGoogle,
-            icon: Container(
-              width: 20,
-              height: 20,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: SweepGradient(
-                  colors: [
-                    Color(0xFFEA4335),
-                    Color(0xFFFBBC05),
-                    Color(0xFF34A853),
-                    Color(0xFF4285F4),
-                    Color(0xFFEA4335),
-                  ],
-                ),
-              ),
-              child: const Center(
-                child: Text(
-                  'G',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ),
-            onPressed: () {},
           ),
         ],
       ),
@@ -274,6 +261,8 @@ class _Field extends StatelessWidget {
     this.obscure = false,
     this.keyboardType,
     this.trailing,
+    this.suffixIcon,
+    this.error,
   });
 
   final String label;
@@ -283,6 +272,8 @@ class _Field extends StatelessWidget {
   final bool obscure;
   final TextInputType? keyboardType;
   final Widget? trailing;
+  final Widget? suffixIcon;
+  final String? error;
 
   @override
   Widget build(BuildContext context) {
@@ -314,38 +305,35 @@ class _Field extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Padding(
-              padding: const EdgeInsets.only(left: AppSpacing.md, right: AppSpacing.sm),
+              padding: const EdgeInsets.only(
+                  left: AppSpacing.md, right: AppSpacing.sm),
               child: Icon(icon, color: AppColors.neutral500, size: 20),
             ),
-            prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+            prefixIconConstraints:
+                const BoxConstraints(minWidth: 0, minHeight: 0),
+            suffixIcon: suffixIcon != null
+                ? Padding(
+                    padding: const EdgeInsets.only(right: AppSpacing.sm),
+                    child: suffixIcon,
+                  )
+                : null,
+            suffixIconConstraints:
+                const BoxConstraints(minWidth: 40, minHeight: 40),
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _Divider extends StatelessWidget {
-  const _Divider({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Expanded(child: Divider(color: AppColors.neutral200)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: AppColors.neutral500,
+        if (error != null) ...[
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              error!,
+              style: const TextStyle(
+                color: AppColors.error,
+                fontSize: 12,
+              ),
             ),
           ),
-        ),
-        const Expanded(child: Divider(color: AppColors.neutral200)),
+        ],
       ],
     );
   }
@@ -369,13 +357,17 @@ class _SignupPrompt extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
-        GestureDetector(
-          onTap: onTap,
-          child: Text(
-            l10n.loginSignup,
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w600,
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(4),
+            child: Text(
+              l10n.loginSignup,
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ),
