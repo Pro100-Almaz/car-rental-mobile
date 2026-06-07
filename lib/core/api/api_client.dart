@@ -1,9 +1,6 @@
-import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
-import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'interceptors/auth_interceptor.dart';
 import 'interceptors/logging_interceptor.dart';
@@ -14,59 +11,44 @@ import 'resources/mobile_notifications_api.dart';
 import 'resources/mobile_payments_api.dart';
 import 'resources/mobile_rentals_api.dart';
 import 'resources/mobile_vehicles_api.dart';
+import 'storage/secure_token_storage.dart';
 
-const _baseUrl = 'http://127.0.0.1:8000/api/v1';
-
-// ---------------------------------------------------------------------------
-// Cookie jar — persists auth_token across app launches
-// ---------------------------------------------------------------------------
-
-/// Async provider that resolves a [PersistCookieJar] backed by the app's
-/// documents directory. Cookies (including auth_token) survive app restarts.
-final cookieJarProvider = FutureProvider<PersistCookieJar>((ref) async {
-  final dir = await getApplicationDocumentsDirectory();
-  final cookiePath = '${dir.path}/.cookies/';
-  return PersistCookieJar(
-    storage: FileStorage(cookiePath),
-    ignoreExpires: false,
-  );
-});
+const _baseUrl = 'https://e762-85-159-25-41.ngrok-free.app/api/v1';
 
 // ---------------------------------------------------------------------------
-// Dio singleton — cookie-based auth, no Bearer interceptor
+// Dio singleton — JWT Bearer auth
 // ---------------------------------------------------------------------------
 
 final dioProvider = Provider<Dio>((ref) {
-  final cookieJarAsync = ref.watch(cookieJarProvider);
+  final storage = ref.watch(secureTokenStorageProvider);
+  final logoutController = ref.watch(logoutControllerProvider);
 
   final dio = Dio(BaseOptions(
     baseUrl: _baseUrl,
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 15),
-    headers: {'Content-Type': 'application/json'},
-    // Follow FastAPI's strict-slashes 307 redirects automatically.
+    headers: {
+      'Content-Type': 'application/json',
+      // Skip ngrok browser-warning interstitial in dev builds.
+      if (kDebugMode) 'ngrok-skip-browser-warning': 'true',
+    },
     followRedirects: true,
     maxRedirects: 3,
   ));
 
-  // Attach cookie jar when it's available. Falls back gracefully (no cookies)
-  // on the very first frame before the future resolves — bootstrap() handles
-  // the auth check after the jar is ready.
-  cookieJarAsync.whenData((jar) {
-    dio.interceptors.add(CookieManager(jar));
-  });
+  dio.interceptors.add(
+    AuthInterceptor(
+      storage: storage,
+      dio: dio,
+      logoutController: logoutController,
+    ),
+  );
 
   if (kDebugMode) {
     dio.interceptors.add(LoggingInterceptor());
   }
 
   return dio;
-});
-
-/// Provides the resolved cookie jar for operations like deleteAll() on logout.
-/// Callers must handle the loading/error states (typically via AsyncValue).
-final resolvedCookieJarProvider = Provider<PersistCookieJar?>((ref) {
-  return ref.watch(cookieJarProvider).valueOrNull;
 });
 
 // ---------------------------------------------------------------------------
@@ -102,7 +84,7 @@ final mobileDevicesApiProvider = Provider<MobileDevicesApi>((ref) {
 });
 
 // ---------------------------------------------------------------------------
-// Legacy ApiClient — thin wrapper kept so any remaining callsites compile.
+// Legacy ApiClient — kept so any remaining callsites compile.
 // New code should use per-resource providers directly.
 // ---------------------------------------------------------------------------
 
@@ -144,7 +126,7 @@ class ApiClient {
     return _dio.post('/account/signup/', data: data);
   }
 
-  Future<Response<dynamic>> logout() => _dio.delete('/account/logout/');
+  Future<Response<dynamic>> logout() => _dio.post('/account/logout/');
 
   Future<Response<dynamic>> verifyEmail({
     required String email,
@@ -158,6 +140,5 @@ class ApiClient {
   Future<Response<dynamic>> resendVerification({required String email}) =>
       _dio.post('/account/resend-verification/', data: {'email': email});
 
-  // Expose logoutControllerProvider so auth_provider can still listen.
   static final logoutStream = logoutControllerProvider;
 }

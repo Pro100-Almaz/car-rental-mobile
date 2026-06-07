@@ -3,30 +3,81 @@ import 'package:dio/dio.dart';
 import '../api_endpoints.dart';
 import '../error_mapper.dart';
 
-// AuthTokens DTO has been removed — login returns 204 No Content + cookie.
-// No /account/refresh/ endpoint exists in the FastAPI backend v1.
+// ---------------------------------------------------------------------------
+// AuthTokens DTO — returned by login and refresh endpoints.
+// ---------------------------------------------------------------------------
 
-/// Auth endpoints: /account/*
+class AuthTokens {
+  const AuthTokens({
+    required this.accessToken,
+    required this.refreshToken,
+    required this.expiresIn,
+    required this.refreshExpiresIn,
+  });
+
+  final String accessToken;
+  final String refreshToken;
+
+  /// Seconds until access token expires.
+  final int expiresIn;
+
+  /// Seconds until refresh token expires.
+  final int refreshExpiresIn;
+
+  factory AuthTokens.fromJson(Map<String, dynamic> json) {
+    return AuthTokens(
+      accessToken: json['access_token'] as String,
+      refreshToken: json['refresh_token'] as String,
+      expiresIn: (json['expires_in'] as num).toInt(),
+      refreshExpiresIn: (json['refresh_expires_in'] as num).toInt(),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Auth API resource: /account/*
+// ---------------------------------------------------------------------------
+
 class MobileAuthApi {
   const MobileAuthApi(this._dio);
   final Dio _dio;
 
   // -------------------------------------------------------------------------
-  // Login — 204 No Content + Set-Cookie: auth_token=...
+  // Login — 200 + { access_token, refresh_token, ... }
   // -------------------------------------------------------------------------
 
   /// POST /account/login/
   /// Request:  { email, password }
-  /// Response: 204 No Content — cookie set automatically by CookieManager.
-  Future<void> login({
+  /// Response: 200 AuthTokens
+  Future<AuthTokens> login({
     required String email,
     required String password,
   }) async {
     try {
-      await _dio.post(
+      final response = await _dio.post(
         ApiEndpoints.login,
         data: {'email': email, 'password': password},
       );
+      return AuthTokens.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Refresh — 200 + { access_token, refresh_token, ... }
+  // -------------------------------------------------------------------------
+
+  /// POST /account/refresh/
+  /// Request:  { refresh_token }
+  /// Response: 200 AuthTokens
+  Future<AuthTokens> refreshToken({required String refreshToken}) async {
+    try {
+      final response = await _dio.post(
+        ApiEndpoints.refreshToken,
+        data: {'refresh_token': refreshToken},
+      );
+      return AuthTokens.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw mapDioError(e);
     }
@@ -38,7 +89,7 @@ class MobileAuthApi {
 
   /// POST /account/signup/
   /// Required: email, password, first_name, last_name
-  /// Optional: phone, organization_id, invite_token, role
+  /// Optional: phone, organization_id
   /// Response: 204 No Content
   Future<void> signup({
     required String email,
@@ -105,7 +156,7 @@ class MobileAuthApi {
   // -------------------------------------------------------------------------
 
   /// PUT /account/password/
-  /// Logged-in change-password. Body: { current_password, new_password }
+  /// Body: { current_password, new_password }
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
@@ -124,11 +175,10 @@ class MobileAuthApi {
   }
 
   // -------------------------------------------------------------------------
-  // Forgot password (added by backend 2026-05-23)
+  // Forgot / reset password
   // -------------------------------------------------------------------------
 
   /// POST /account/forgot-password/ — Body: { email }
-  /// Sends a reset code to the user's email.
   Future<void> forgotPassword({required String email}) async {
     try {
       await _dio.post(
@@ -164,10 +214,10 @@ class MobileAuthApi {
   // Logout
   // -------------------------------------------------------------------------
 
-  /// DELETE /account/logout/ — clears the auth_token cookie server-side.
+  /// POST /account/logout/
   Future<void> logout() async {
     try {
-      await _dio.delete(ApiEndpoints.logout);
+      await _dio.post(ApiEndpoints.logout);
     } on DioException catch (e) {
       throw mapDioError(e);
     }

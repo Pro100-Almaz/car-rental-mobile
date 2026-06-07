@@ -5,6 +5,7 @@ import '../api/api_client.dart';
 import '../api/api_exception.dart';
 import '../api/resources/mobile_auth_api.dart';
 import '../api/resources/mobile_clients_api.dart';
+import '../api/storage/secure_token_storage.dart';
 import '../models/user.dart';
 import '../push/push_config.dart';
 import '../push/push_service.dart';
@@ -69,29 +70,32 @@ class AuthNotifier extends StateNotifier<AppUser?> {
 
   MobileAuthApi get _authApi => _ref.read(mobileAuthApiProvider);
   MobileClientsApi get _clientsApi => _ref.read(mobileClientsApiProvider);
+  SecureTokenStorage get _storage => _ref.read(secureTokenStorageProvider);
 
   // -------------------------------------------------------------------------
-  // Bootstrap — call on app start to hydrate from persisted cookie
+  // Bootstrap — call on app start to hydrate from persisted JWT
   // -------------------------------------------------------------------------
 
-  /// Calls GET /mobile/clients/me. If cookies are valid the server returns the
-  /// user. A 401 means the cookie has expired — clear cookie jar and emit null.
+  /// Checks SecureTokenStorage for a stored access token. If present,
+  /// calls GET /mobile/clients/me. A 401 means the token (and refresh) have
+  /// expired — the AuthInterceptor already cleared storage.
   Future<void> bootstrap() async {
-    // Wait for the cookie jar to be ready before attempting the auth check.
-    await _ref.read(cookieJarProvider.future);
+    final token = await _storage.accessToken;
+    if (token == null) {
+      state = null;
+      return;
+    }
     try {
       final user = await _clientsApi.me();
       state = user;
     } on UnauthorizedException {
-      await _clearCookies();
+      await _clearTokens();
       state = null;
     } on NetworkException {
-      // Offline — keep cookies, leave state null. App will retry next launch.
+      // Offline — keep tokens, leave state null. App retries next launch.
       state = null;
     } on ApiException {
-      // Server responded with 5xx/4xx (e.g., 500 "no client profile" for an
-      // admin/seed account). Clear cookies so the user can re-auth as a client.
-      await _clearCookies();
+      await _clearTokens();
       state = null;
     }
   }
@@ -102,38 +106,32 @@ class AuthNotifier extends StateNotifier<AppUser?> {
 
   /// Returns 'ok' on success, 'unverified' on 403, 'invalid_credentials' on
   /// 401, or an error message string.
-  ///
-  /// Cookie auth flow:
-  ///   1. POST /account/login/ → 204 + Set-Cookie: auth_token=...
-  ///      CookieManager persists the cookie automatically.
-  ///   2. GET /mobile/clients/me → hydrates AppUser.
-  ///   3. Login success implies email is verified (backend rejects unverified
-  ///      accounts — Option A per contract discovery 2026-05-23).
   Future<String> login({
     required String email,
     required String password,
   }) async {
     try {
-      await _authApi.login(email: email, password: password);
+      final tokens = await _authApi.login(email: email, password: password);
+      await _storage.saveTokens(
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      );
     } on ForbiddenException {
-      // Backend may 403 on unverified email — send user to verify-email screen.
       return 'unverified';
     } on UnauthorizedException {
       return 'invalid_credentials';
     } on ApiException catch (e) {
       return e.serverMessage ?? e.code;
     }
-    // Login succeeded — the auth_token cookie is set. Hydrate the user.
-    // If hydration fails, the account exists but has no client profile (admin /
-    // seed accounts). Clear the cookie so subsequent bootstraps don't loop.
+
+    // Tokens saved — hydrate the user profile.
     try {
       final user = await _clientsApi.me();
       state = user;
       if (kEnablePush) await _ref.read(pushServiceProvider).register(_ref);
       return 'ok';
     } catch (e) {
-      final jar = await _ref.read(cookieJarProvider.future);
-      await jar.deleteAll();
+      await _clearTokens();
       return 'no_client_profile';
     }
   }
@@ -144,13 +142,10 @@ class AuthNotifier extends StateNotifier<AppUser?> {
 
   /// Returns one of:
   ///   - 'ok'                 — 204; user created, code emailed
-  ///   - 'email_send_failed'  — 503 EmailSendError; user IS created but SMTP
-  ///                            failed. UI should still push /verify-email and
-  ///                            offer Resend.
+  ///   - 'email_send_failed'  — 503; user IS created but SMTP failed
   ///   - 'conflict'           — 409 email already registered
   ///   - 'org_required'       — 400 OrganizationIdRequiredError
   ///   - server message string — other ApiException
-  /// Does NOT auto-login — user must verify email first.
   Future<String> signup({
     required String email,
     required String password,
@@ -159,9 +154,7 @@ class AuthNotifier extends StateNotifier<AppUser?> {
     String? phone,
     String? organizationId,
   }) async {
-    // Backend rejects signup with 403 if the caller is already authenticated.
-    // Clear any lingering cookies before proceeding.
-    await _clearCookies();
+    await _clearTokens();
     state = null;
     try {
       await _authApi.signup(
@@ -176,10 +169,6 @@ class AuthNotifier extends StateNotifier<AppUser?> {
     } on ConflictException {
       return 'conflict';
     } on ServerException catch (e) {
-      // Backend B1 (signup 500) is fixed. SMTP failures now return 503
-      // EmailSendError — the account is created but the verification email
-      // could not be delivered. Surface as 'email_send_failed' so the UI can
-      // still push to /verify-email and offer Resend.
       if (e.statusCode == 503) return 'email_send_failed';
       return e.serverMessage ?? 'error';
     } on ApiException catch (e) {
@@ -202,8 +191,6 @@ class AuthNotifier extends StateNotifier<AppUser?> {
   }) async {
     try {
       await _authApi.verifyEmail(email: email, code: code);
-      // After verification the user needs to login — refreshCurrentUser
-      // will succeed only if a session cookie exists.
       await refreshCurrentUser();
       return 'ok';
     } on ConflictException {
@@ -234,10 +221,9 @@ class AuthNotifier extends StateNotifier<AppUser?> {
   }
 
   // -------------------------------------------------------------------------
-  // Forgot / reset password (backend endpoints added 2026-05-23)
+  // Forgot / reset password
   // -------------------------------------------------------------------------
 
-  /// POST /account/forgot-password/ — Body: { email }
   /// Returns 'ok', 'not_found', 'rate_limited', 'email_send_failed', or 'error'.
   Future<String> forgotPassword({required String email}) async {
     try {
@@ -255,7 +241,6 @@ class AuthNotifier extends StateNotifier<AppUser?> {
     }
   }
 
-  /// POST /account/reset-password/ — Body: { email, code, new_password }
   /// Returns 'ok', 'invalid_code', 'weak_password', or 'error'.
   Future<String> resetPassword({
     required String email,
@@ -315,7 +300,7 @@ class AuthNotifier extends StateNotifier<AppUser?> {
     } catch (_) {
       // Best-effort server logout — always clear local session.
     }
-    await _clearCookies();
+    await _clearTokens();
     state = null;
   }
 
@@ -323,12 +308,11 @@ class AuthNotifier extends StateNotifier<AppUser?> {
   // Helpers
   // -------------------------------------------------------------------------
 
-  Future<void> _clearCookies() async {
+  Future<void> _clearTokens() async {
     try {
-      final jar = _ref.read(resolvedCookieJarProvider);
-      await jar?.deleteAll();
+      await _storage.clearTokens();
     } catch (_) {
-      // Ignore cookie-jar errors on logout.
+      // Ignore storage errors on logout.
     }
   }
 }

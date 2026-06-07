@@ -1,6 +1,6 @@
 /// Canonical path constants for all /mobile/* endpoints.
-/// Source of truth: AutoFleet FastAPI OpenAPI spec (verified 2026-05-23).
-/// Base URL: http://127.0.0.1:8000/api/v1
+/// Source of truth: AutoFleet FastAPI OpenAPI spec.
+/// Base URL: see api_client.dart _baseUrl
 class ApiEndpoints {
   ApiEndpoints._();
 
@@ -21,7 +21,8 @@ class ApiEndpoints {
   /// POST /account/reset-password/ — Body: { email, code, new_password }
   static const String resetPassword = '/account/reset-password/';
 
-  // REMOVED: refreshToken — no /account/refresh/ endpoint exists in v1.
+  /// POST /account/refresh/ — Body: { refresh_token }
+  static const String refreshToken = '/account/refresh/';
 
   // Client profile — /mobile/clients/me (no trailing slash per OpenAPI)
   static const String clientMe = '/mobile/clients/me';
